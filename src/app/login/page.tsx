@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { Users } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -24,16 +25,16 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      const supabase = createClient()
+      
+      // Sign in with Supabase Auth
+      const { error } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to log in')
+      if (error) {
+        throw new Error(error.message)
       }
 
       toast({
@@ -41,12 +42,12 @@ export default function LoginPage() {
         description: 'Logged in successfully',
       })
 
-      router.push('/dashboard')
-      router.refresh()
+      // Force a hard reload to dashboard to refresh all server components
+      window.location.href = '/dashboard'
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Invalid email or password',
         variant: 'destructive',
       })
     } finally {
