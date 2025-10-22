@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { Users } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -48,16 +49,22 @@ export default function SignUpPage() {
     }
 
     try {
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      const supabase = createClient()
+
+      // Sign up with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+        options: {
+          data: {
+            name: formData.name,
+            organization_name: formData.organizationName,
+          }
+        }
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create account')
+      if (authError) {
+        throw new Error(authError.message)
       }
 
       toast({
@@ -65,11 +72,12 @@ export default function SignUpPage() {
         description: 'Account created successfully',
       })
 
-      router.push('/dashboard')
+      // Force hard reload to dashboard
+      window.location.href = '/dashboard'
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to create account',
         variant: 'destructive',
       })
     } finally {
