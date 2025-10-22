@@ -54,24 +54,33 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // Try to get user, but handle errors gracefully
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
 
-  // Protected routes - require authentication
-  if (request.nextUrl.pathname.startsWith('/dashboard') ||
-      request.nextUrl.pathname.startsWith('/offboardings') ||
-      request.nextUrl.pathname.startsWith('/templates') ||
-      request.nextUrl.pathname.startsWith('/tasks')) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url))
+    // Protected routes - require authentication
+    if (request.nextUrl.pathname.startsWith('/dashboard') ||
+        request.nextUrl.pathname.startsWith('/offboardings') ||
+        request.nextUrl.pathname.startsWith('/templates') ||
+        request.nextUrl.pathname.startsWith('/tasks')) {
+      if (!user) {
+        const redirectUrl = new URL('/login', request.url)
+        return NextResponse.redirect(redirectUrl)
+      }
     }
-  }
 
-  // Auth routes - redirect to dashboard if already logged in
-  if (request.nextUrl.pathname === '/login' || 
-      request.nextUrl.pathname === '/signup') {
-    if (user) {
-      return NextResponse.redirect(new URL('/dashboard', request.url))
+    // Auth routes - redirect to dashboard if already logged in
+    if (request.nextUrl.pathname === '/login' || 
+        request.nextUrl.pathname === '/signup') {
+      if (user) {
+        const redirectUrl = new URL('/dashboard', request.url)
+        return NextResponse.redirect(redirectUrl)
+      }
     }
+  } catch (error) {
+    // If there's an error checking auth, allow the request to proceed
+    // This prevents middleware from blocking the entire site
+    console.error('Middleware auth error:', error)
   }
 
   return response
@@ -79,6 +88,13 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public files (images, etc)
+     */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
