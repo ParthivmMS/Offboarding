@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 import { Plus, Search } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function OffboardingsPage() {
   const supabase = await createClient()
   
