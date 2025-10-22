@@ -5,6 +5,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TaskCard from '@/components/dashboard/TaskCard'
 import { Clock, CheckCircle, AlertCircle } from 'lucide-react'
 
+export const dynamic = 'force-dynamic'
+
 export default async function TasksPage() {
   const supabase = await createClient()
   
