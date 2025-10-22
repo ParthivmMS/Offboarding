@@ -51,11 +51,13 @@ export default function TaskCard({ task, isOverdue = false }: TaskCardProps) {
     }
   }
 
-  const priorityColor = {
+  const priorityColors: Record<string, string> = {
     High: 'bg-red-100 text-red-700 border-red-200',
     Medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
     Low: 'bg-green-100 text-green-700 border-green-200',
-  }[task.priority] || 'bg-slate-100 text-slate-700'
+  }
+  
+  const priorityColor = priorityColors[task.priority] || 'bg-slate-100 text-slate-700'
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -93,7 +95,7 @@ export default function TaskCard({ task, isOverdue = false }: TaskCardProps) {
             <div className="flex flex-wrap gap-4 text-sm text-slate-500 mb-4">
               <div className="flex items-center gap-1">
                 <User className="w-4 h-4" />
-                <span>{task.offboardings.employee_name}</span>
+                <span>{task.offboardings?.employee_name || 'N/A'}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
