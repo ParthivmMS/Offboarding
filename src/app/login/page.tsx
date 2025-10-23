@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,7 +11,6 @@ import { Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState({
@@ -28,7 +26,7 @@ export default function LoginPage() {
       const supabase = createClient()
       
       // Sign in with Supabase Auth
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: formData.email,
         password: formData.password,
       })
@@ -37,21 +35,27 @@ export default function LoginPage() {
         throw new Error(error.message)
       }
 
+      console.log('Login successful:', data)
+
       toast({
         title: 'Success!',
-        description: 'Logged in successfully',
+        description: 'Redirecting to dashboard...',
       })
 
-      // Force a hard reload to dashboard to refresh all server components
-      window.location.href = '/dashboard'
+      // Wait a bit for cookies to be set, then redirect
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      // Use replace to avoid back button issues
+      window.location.replace('/dashboard')
+      
     } catch (error: any) {
+      console.error('Login error:', error)
+      setLoading(false)
       toast({
         title: 'Error',
         description: error.message || 'Invalid email or password',
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -85,6 +89,7 @@ export default function LoginPage() {
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
+                  disabled={loading}
                 />
               </div>
 
@@ -97,6 +102,7 @@ export default function LoginPage() {
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
+                  disabled={loading}
                 />
               </div>
 
