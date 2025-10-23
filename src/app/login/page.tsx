@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,10 +13,28 @@ import { createClient } from '@/lib/supabase/client'
 export default function LoginPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   })
+
+  // Check if already logged in on page load
+  useEffect(() => {
+    checkExistingSession()
+  }, [])
+
+  async function checkExistingSession() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      // Already logged in, redirect immediately
+      window.location.href = '/dashboard'
+    } else {
+      setChecking(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,13 +55,13 @@ export default function LoginPage() {
 
       console.log('Login successful:', data)
 
-      toast({
-        title: 'Success!',
-        description: 'Redirecting to dashboard...',
-      })
-
-      // Direct navigation - no waiting
+      // Don't show toast yet - redirect immediately
+      // The toast was causing a delay
+      
+      // Force immediate redirect - this bypasses middleware check
       window.location.href = '/dashboard'
+      
+      // Keep loading state true so button stays disabled during redirect
       
     } catch (error: any) {
       console.error('Login error:', error)
@@ -54,6 +72,18 @@ export default function LoginPage() {
         variant: 'destructive',
       })
     }
+  }
+
+  // Show loading while checking existing session
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-slate-600">Checking session...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
