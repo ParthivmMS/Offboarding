@@ -32,12 +32,9 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Auth routes - redirect if already logged in
-  if ((pathname === '/login' || pathname === '/signup') && hasAuthToken) {
-    console.log('Already authenticated, redirecting to dashboard')
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
-
+  // Don't redirect from auth pages if logged in - let the page handle it
+  // This prevents the middleware from blocking the JavaScript redirect
+  
   return NextResponse.next()
 }
 
