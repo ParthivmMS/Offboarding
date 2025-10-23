@@ -1,25 +1,36 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
-  // Check if user has auth cookie
-  const hasAuthCookie = request.cookies.has('sb-access-token') || request.cookies.has('sb-refresh-token')
-
-  // Protected routes - require authentication  
-  const protectedPaths = ['/dashboard', '/offboardings', '/templates', '/tasks']
-  const isProtectedPath = protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))
+  const { pathname } = request.nextUrl
   
-  if (isProtectedPath && !hasAuthCookie) {
-    const redirectUrl = new URL('/login', request.url)
-    return NextResponse.redirect(redirectUrl)
+  // Skip middleware for static files and API routes
+  if (
+    pathname.startsWith('/_next') ||
+    pathname.startsWith('/api') ||
+    pathname.startsWith('/static') ||
+    pathname.includes('.')
+  ) {
+    return NextResponse.next()
   }
 
-  // Auth routes - redirect to dashboard if already logged in
-  const authPaths = ['/login', '/signup']
-  const isAuthPath = authPaths.includes(request.nextUrl.pathname)
+  // Check for Supabase auth cookies
+  const hasAuthToken = request.cookies.has('sb-access-token') || 
+                       request.cookies.has('sb-refresh-token') ||
+                       request.cookies.getAll().some(cookie => cookie.name.includes('supabase'))
+
+  // Protected routes
+  const protectedPaths = ['/dashboard', '/offboardings', '/templates', '/tasks']
+  const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path))
   
-  if (isAuthPath && hasAuthCookie) {
-    const redirectUrl = new URL('/dashboard', request.url)
-    return NextResponse.redirect(redirectUrl)
+  if (isProtectedPath && !hasAuthToken) {
+    console.log('No auth token, redirecting to login')
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  // Auth routes - redirect if already logged in
+  if ((pathname === '/login' || pathname === '/signup') && hasAuthToken) {
+    console.log('Already logged in, redirecting to dashboard')
+    return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
   return NextResponse.next()
@@ -27,6 +38,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }
