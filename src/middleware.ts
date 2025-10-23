@@ -13,23 +13,28 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  // Check for Supabase auth cookies
-  const hasAuthToken = request.cookies.has('sb-access-token') || 
-                       request.cookies.has('sb-refresh-token') ||
-                       request.cookies.getAll().some(cookie => cookie.name.includes('supabase'))
+  // Check for ANY Supabase auth cookie (they have random prefixes)
+  const allCookies = request.cookies.getAll()
+  const hasAuthToken = allCookies.some(cookie => 
+    cookie.name.includes('auth-token') || 
+    cookie.name.includes('sb-') ||
+    cookie.name === 'supabase-auth-token'
+  )
+
+  console.log('Middleware check:', { pathname, hasAuthToken, cookies: allCookies.map(c => c.name) })
 
   // Protected routes
   const protectedPaths = ['/dashboard', '/offboardings', '/templates', '/tasks']
   const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path))
   
   if (isProtectedPath && !hasAuthToken) {
-    console.log('No auth token, redirecting to login')
+    console.log('No auth, redirecting to login')
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
   // Auth routes - redirect if already logged in
   if ((pathname === '/login' || pathname === '/signup') && hasAuthToken) {
-    console.log('Already logged in, redirecting to dashboard')
+    console.log('Already authenticated, redirecting to dashboard')
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
