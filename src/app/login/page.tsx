@@ -42,11 +42,8 @@ export default function LoginPage() {
         description: 'Redirecting to dashboard...',
       })
 
-      // Wait a bit for cookies to be set, then redirect
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Use replace to avoid back button issues
-      window.location.replace('/dashboard')
+      // Direct navigation - no waiting
+      window.location.href = '/dashboard'
       
     } catch (error: any) {
       console.error('Login error:', error)
