@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Users, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { Users, CheckCircle, Clock, AlertCircle, Menu } from 'lucide-react'
 import Link from 'next/link'
 import { useToast } from '@/hooks/use-toast'
 
@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     checkUser()
@@ -53,66 +54,100 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-slate-50">
       {/* Simple Header */}
       <header className="bg-white border-b">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Users className="w-5 h-5 text-white" />
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-white" />
+                </div>
+                <span className="font-bold text-xl">OffboardPro</span>
               </div>
-              <span className="font-bold text-xl">OffboardPro</span>
+              
+              {/* Desktop Navigation */}
+              <nav className="hidden md:flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')}>
+                  Dashboard
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Offboardings page is under construction' })}>
+                  Offboardings
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Tasks page is under construction' })}>
+                  My Tasks
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Templates page is under construction' })}>
+                  Templates
+                </Button>
+              </nav>
             </div>
             
-            {/* Navigation Menu */}
-            <nav className="hidden md:flex items-center gap-1">
-              <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')}>
-                Dashboard
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Offboardings page is under construction' })}>
-                Offboardings
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Tasks page is under construction' })}>
-                My Tasks
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Templates page is under construction' })}>
-                Templates
-              </Button>
-            </nav>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {/* Notifications */}
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => toast({ title: 'Notifications', description: 'No new notifications' })}
-              className="relative"
-            >
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
-                3
-              </span>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-            </Button>
-            
-            {/* Profile Menu */}
             <div className="flex items-center gap-2">
+              {/* Mobile Menu Button */}
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="md:hidden"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                <Menu className="w-5 h-5" />
+              </Button>
+              
+              {/* Notifications */}
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => toast({ title: 'Notifications', description: 'No new notifications' })}
+                className="relative"
+              >
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
+                  3
+                </span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </Button>
+              
+              {/* Profile Menu */}
               <Button
                 variant="ghost"
-                className="flex items-center gap-2"
+                size="icon"
                 onClick={() => toast({ title: 'Profile Settings', description: 'Settings page coming soon' })}
+                className="hidden md:flex"
               >
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
                   {user?.email?.charAt(0).toUpperCase()}
                 </div>
-                <span className="hidden md:block text-sm">{user?.email}</span>
               </Button>
               
-              <Button onClick={handleLogout} variant="outline" size="sm">
+              <Button onClick={handleLogout} variant="outline" size="sm" className="hidden md:flex">
                 Log Out
               </Button>
             </div>
           </div>
+          
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="md:hidden mt-4 pt-4 border-t space-y-2">
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { router.push('/dashboard'); setMobileMenuOpen(false); }}>
+                Dashboard
+              </Button>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { toast({ title: 'Coming Soon' }); setMobileMenuOpen(false); }}>
+                Offboardings
+              </Button>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { toast({ title: 'Coming Soon' }); setMobileMenuOpen(false); }}>
+                My Tasks
+              </Button>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { toast({ title: 'Coming Soon' }); setMobileMenuOpen(false); }}>
+                Templates
+              </Button>
+              <div className="pt-2 border-t">
+                <div className="px-3 py-2 text-sm text-slate-600">{user?.email}</div>
+                <Button onClick={handleLogout} variant="outline" className="w-full">
+                  Log Out
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
