@@ -59,12 +59,50 @@ export default function SignUpPage() {
           data: {
             name: formData.name,
             organization_name: formData.organizationName,
-          }
+          },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         }
       })
 
       if (authError) {
         throw new Error(authError.message)
+      }
+
+      if (!authData.user) {
+        throw new Error('Signup failed')
+      }
+
+      // Create organization in our database
+      const { data: org, error: orgError } = await supabase
+        .from('organizations')
+        .insert({
+          name: formData.organizationName,
+        })
+        .select()
+        .single()
+
+      if (orgError) {
+        console.error('Org creation error:', orgError)
+        // Continue anyway, we can fix this later
+      }
+
+      // Create user in our users table
+      if (org) {
+        const { error: userError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            email: formData.email,
+            name: formData.name,
+            password_hash: 'supabase_auth', // Placeholder since we use Supabase Auth
+            organization_id: org.id,
+            role: 'admin',
+          })
+
+        if (userError) {
+          console.error('User creation error:', userError)
+          // Continue anyway
+        }
       }
 
       toast({
@@ -73,7 +111,9 @@ export default function SignUpPage() {
       })
 
       // Force hard reload to dashboard
-      window.location.href = '/dashboard'
+      setTimeout(() => {
+        window.location.href = '/dashboard'
+      }, 500)
     } catch (error: any) {
       toast({
         title: 'Error',
