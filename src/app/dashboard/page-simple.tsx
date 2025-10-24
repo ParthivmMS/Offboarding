@@ -69,13 +69,13 @@ export default function DashboardPage() {
                 <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard')}>
                   Dashboard
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Offboardings page is under construction' })}>
+                <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/offboardings')}>
                   Offboardings
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Tasks page is under construction' })}>
+                <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/tasks')}>
                   My Tasks
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => toast({ title: 'Coming Soon', description: 'Templates page is under construction' })}>
+                <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/templates')}>
                   Templates
                 </Button>
               </nav>
@@ -111,7 +111,7 @@ export default function DashboardPage() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => toast({ title: 'Profile Settings', description: 'Settings page coming soon' })}
+                onClick={() => router.push('/dashboard/settings')}
                 className="hidden md:flex"
               >
                 <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
@@ -131,14 +131,17 @@ export default function DashboardPage() {
               <Button variant="ghost" className="w-full justify-start" onClick={() => { router.push('/dashboard'); setMobileMenuOpen(false); }}>
                 Dashboard
               </Button>
-              <Button variant="ghost" className="w-full justify-start" onClick={() => { toast({ title: 'Coming Soon' }); setMobileMenuOpen(false); }}>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { router.push('/dashboard/offboardings'); setMobileMenuOpen(false); }}>
                 Offboardings
               </Button>
-              <Button variant="ghost" className="w-full justify-start" onClick={() => { toast({ title: 'Coming Soon' }); setMobileMenuOpen(false); }}>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { router.push('/dashboard/tasks'); setMobileMenuOpen(false); }}>
                 My Tasks
               </Button>
-              <Button variant="ghost" className="w-full justify-start" onClick={() => { toast({ title: 'Coming Soon' }); setMobileMenuOpen(false); }}>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { router.push('/dashboard/templates'); setMobileMenuOpen(false); }}>
                 Templates
+              </Button>
+              <Button variant="ghost" className="w-full justify-start" onClick={() => { router.push('/dashboard/settings'); setMobileMenuOpen(false); }}>
+                Settings
               </Button>
               <div className="pt-2 border-t">
                 <div className="px-3 py-2 text-sm text-slate-600">{user?.email}</div>
@@ -215,10 +218,7 @@ export default function DashboardPage() {
               <Users className="w-16 h-16 mx-auto mb-4 text-slate-300" />
               <h3 className="text-lg font-semibold mb-2">No offboardings yet</h3>
               <p className="text-slate-500 mb-6">Start your first employee offboarding process</p>
-              <Button onClick={() => toast({ 
-                title: 'Coming Soon', 
-                description: 'The offboarding creation form will be available soon!' 
-              })}>
+              <Button onClick={() => router.push('/dashboard/offboardings/new')}>
                 Start New Offboarding
               </Button>
             </div>
