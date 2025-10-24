@@ -12,9 +12,10 @@ import { useRouter } from 'next/navigation'
 interface TaskCardProps {
   task: any
   isOverdue?: boolean
+  onUpdate?: () => void
 }
 
-export default function TaskCard({ task, isOverdue = false }: TaskCardProps) {
+export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCardProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -39,6 +40,9 @@ export default function TaskCard({ task, isOverdue = false }: TaskCardProps) {
         description: 'The task has been marked as complete.',
       })
 
+      if (onUpdate) {
+        onUpdate()
+      }
       router.refresh()
     } catch (error) {
       toast({
