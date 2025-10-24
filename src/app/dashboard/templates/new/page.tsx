@@ -80,22 +80,27 @@ export default function CreateTemplatePage() {
         throw new Error('Not authenticated')
       }
 
-      // Get user's organization
-      const { data: userData } = await supabase
+      // Get user's organization from our users table
+      const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
+        .select('organization_id, id')
+        .eq('email', user.email)
         .single()
 
-      // Create template
+      if (userError || !userData) {
+        console.error('User lookup error:', userError)
+        throw new Error('User account not found. Please contact support.')
+      }
+
+      // Create template (without created_by for now to avoid foreign key issues)
       const { data: template, error: templateError } = await supabase
         .from('templates')
         .insert({
           name: formData.name,
           role_type: formData.role_type,
           description: formData.description,
-          organization_id: userData?.organization_id,
-          created_by: user.id,
+          organization_id: userData.organization_id,
+          created_by: null, // Set to null to avoid foreign key constraint
         })
         .select()
         .single()
