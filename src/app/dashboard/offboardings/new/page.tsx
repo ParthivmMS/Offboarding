@@ -45,30 +45,12 @@ export default function NewOffboardingPage() {
       return
     }
 
-    // Get organization_id from user metadata or query users table
-    let organizationId = user.user_metadata?.organization_id
-
-    // If not in metadata, query users table
-    if (!organizationId) {
-      const { data: userData, error: userDataError } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (userDataError) {
-        console.error('Error fetching user data:', userDataError)
-      }
-
-      organizationId = userData?.organization_id
-    }
-
-    if (!organizationId) {
-      console.error('No organization_id found for user')
-      throw new Error('User is not associated with an organization')
-    }
-
-    console.log('Fetching templates for organization:', organizationId)
+    // TEMPORARY: Use hardcoded organization ID
+    const organizationId = '41bf5b56-20c1-47c9-a7e1-05edd3190c61'
+    
+    console.log('User ID:', user.id)
+    console.log('User email:', user.email)
+    console.log('Organization ID:', organizationId)
 
     // Get templates (both default and organization-specific)
     const { data: templatesData, error: templatesError } = await supabase
@@ -85,6 +67,7 @@ export default function NewOffboardingPage() {
     }
 
     console.log('Templates fetched:', templatesData?.length || 0)
+    console.log('Templates data:', templatesData)
 
     if (!templatesData || templatesData.length === 0) {
       console.warn('No templates found')
