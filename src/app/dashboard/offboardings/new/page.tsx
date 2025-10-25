@@ -18,6 +18,7 @@ export default function NewOffboardingPage() {
   const [loading, setLoading] = useState(false)
   const [loadingTemplates, setLoadingTemplates] = useState(true)
   const [templates, setTemplates] = useState<any[]>([])
+  const [organizationId, setOrganizationId] = useState<string>('')
   const [formData, setFormData] = useState({
     employee_name: '',
     employee_email: '',
@@ -35,77 +36,102 @@ export default function NewOffboardingPage() {
   }, [])
 
   async function fetchTemplates() {
-  try {
-    const supabase = createClient()
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    try {
+      const supabase = createClient()
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-    if (userError || !user) {
-      console.error('Auth error:', userError)
-      router.push('/login')
-      return
-    }
+      if (userError || !user) {
+        console.error('Auth error:', userError)
+        router.push('/login')
+        return
+      }
 
-    // TEMPORARY: Use hardcoded organization ID
-    const organizationId = '41bf5b56-20c1-47c9-a7e1-05edd3190c61'
-    
-    console.log('User ID:', user.id)
-    console.log('User email:', user.email)
-    console.log('Organization ID:', organizationId)
+      console.log('Auth User ID:', user.id)
+      console.log('Auth User Email:', user.email)
 
-    // Get templates (both default and organization-specific)
-    const { data: templatesData, error: templatesError } = await supabase
-      .from('templates')
-      .select('id, name, role_type, description, is_default')
-      .or(`is_default.eq.true,organization_id.eq.${organizationId}`)
-      .eq('is_active', true)
-      .order('is_default', { ascending: false })
-      .order('created_at', { ascending: false })
+      // Try to get organization_id from users table
+      const { data: userData, error: userDataError } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .maybeSingle()
 
-    if (templatesError) {
-      console.error('Error fetching templates:', templatesError)
-      throw templatesError
-    }
+      let orgId = userData?.organization_id
 
-    console.log('Templates fetched:', templatesData?.length || 0)
-    console.log('Templates data:', templatesData)
+      // If not found, try by email
+      if (!orgId) {
+        console.log('Organization not found by user ID, trying email...')
+        const { data: userByEmail } = await supabase
+          .from('users')
+          .select('organization_id')
+          .eq('email', user.email)
+          .maybeSingle()
+        
+        orgId = userByEmail?.organization_id
+      }
 
-    if (!templatesData || templatesData.length === 0) {
-      console.warn('No templates found')
-      setTemplates([])
-      return
-    }
+      // If still not found, use hardcoded (temporary fallback)
+      if (!orgId) {
+        console.warn('Organization not found in database, using fallback')
+        orgId = '41bf5b56-20c1-47c9-a7e1-05edd3190c61'
+      }
 
-    // Get task counts separately for each template
-    const templatesWithCounts = await Promise.all(
-      templatesData.map(async (template) => {
-        const { count, error: countError } = await supabase
-          .from('template_tasks')
-          .select('*', { count: 'exact', head: true })
-          .eq('template_id', template.id)
+      console.log('Using Organization ID:', orgId)
+      setOrganizationId(orgId)
 
-        if (countError) {
-          console.error(`Error counting tasks for template ${template.id}:`, countError)
-        }
+      // Get templates (both default and organization-specific)
+      const { data: templatesData, error: templatesError } = await supabase
+        .from('templates')
+        .select('id, name, role_type, description, is_default')
+        .or(`is_default.eq.true,organization_id.eq.${orgId}`)
+        .eq('is_active', true)
+        .order('is_default', { ascending: false })
+        .order('created_at', { ascending: false })
 
-        return {
-          ...template,
-          task_count: count || 0,
-        }
+      if (templatesError) {
+        console.error('Error fetching templates:', templatesError)
+        throw templatesError
+      }
+
+      console.log('Templates fetched:', templatesData?.length || 0)
+
+      if (!templatesData || templatesData.length === 0) {
+        console.warn('No templates found')
+        setTemplates([])
+        return
+      }
+
+      // Get task counts separately for each template
+      const templatesWithCounts = await Promise.all(
+        templatesData.map(async (template) => {
+          const { count, error: countError } = await supabase
+            .from('template_tasks')
+            .select('*', { count: 'exact', head: true })
+            .eq('template_id', template.id)
+
+          if (countError) {
+            console.error(`Error counting tasks for template ${template.id}:`, countError)
+          }
+
+          return {
+            ...template,
+            task_count: count || 0,
+          }
+        })
+      )
+
+      console.log('Templates with counts:', templatesWithCounts)
+      setTemplates(templatesWithCounts)
+    } catch (error: any) {
+      console.error('Failed to load templates:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to load templates',
+        variant: 'destructive',
       })
-    )
-
-    console.log('Templates with counts:', templatesWithCounts)
-    setTemplates(templatesWithCounts)
-  } catch (error: any) {
-    console.error('Failed to load templates:', error)
-    toast({
-      title: 'Error',
-      description: error.message || 'Failed to load templates',
-      variant: 'destructive',
-    })
-  } finally {
-    setLoadingTemplates(false)
-  }
+    } finally {
+      setLoadingTemplates(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -120,14 +146,8 @@ export default function NewOffboardingPage() {
         throw new Error('Not authenticated')
       }
 
-      // Get user's organization
-      const { data: userData } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single()
-
-      if (!userData || !userData.organization_id) {
+      // Use the organizationId from state (already fetched)
+      if (!organizationId) {
         throw new Error('Organization not found')
       }
 
@@ -135,7 +155,7 @@ export default function NewOffboardingPage() {
       const { data: offboarding, error: offboardingError } = await supabase
         .from('offboardings')
         .insert({
-          organization_id: userData.organization_id,
+          organization_id: organizationId,
           employee_name: formData.employee_name,
           employee_email: formData.employee_email,
           department: formData.department,
