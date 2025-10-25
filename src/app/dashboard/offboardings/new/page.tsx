@@ -35,58 +35,75 @@ export default function NewOffboardingPage() {
   }, [])
 
   async function fetchTemplates() {
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
 
-      if (!user) {
-        router.push('/login')
-        return
-      }
-
-      // Get user's organization
-      const { data: userData } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single()
-
-      // Get templates (both default and organization-specific)
-      const { data: templatesData, error } = await supabase
-        .from('templates')
-        .select(`
-          id,
-          name,
-          role_type,
-          description,
-          template_tasks(count)
-        `)
-        .or(`organization_id.is.null,organization_id.eq.${userData?.organization_id}`)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching templates:', error)
-        throw error
-      }
-
-      // Format templates with task count
-      const formatted = templatesData?.map(t => ({
-        ...t,
-        task_count: t.template_tasks?.[0]?.count || 0,
-      })) || []
-
-      setTemplates(formatted)
-    } catch (error: any) {
-      console.error('Failed to load templates:', error)
-      toast({
-        title: 'Error',
-        description: 'Failed to load templates',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoadingTemplates(false)
+    if (!user) {
+      router.push('/login')
+      return
     }
+
+    // Get user's organization
+    const { data: userData } = await supabase
+      .from('users')
+      .select('organization_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!userData?.organization_id) {
+      throw new Error('Organization not found')
+    }
+
+    // Get templates (both default and organization-specific)
+    const { data: templatesData, error } = await supabase
+      .from('templates')
+      .select('id, name, role_type, description, is_default')
+      .or(`is_default.eq.true,organization_id.eq.${userData.organization_id}`)
+      .eq('is_active', true)
+      .order('is_default', { ascending: false }) // Show default templates first
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching templates:', error)
+      throw error
+    }
+
+    if (!templatesData || templatesData.length === 0) {
+      setTemplates([])
+      return
+    }
+
+    // Get task counts separately for each template
+    const templatesWithCounts = await Promise.all(
+      templatesData.map(async (template) => {
+        const { count, error: countError } = await supabase
+          .from('template_tasks')
+          .select('*', { count: 'exact', head: true })
+          .eq('template_id', template.id)
+
+        if (countError) {
+          console.error(`Error counting tasks for template ${template.id}:`, countError)
+        }
+
+        return {
+          ...template,
+          task_count: count || 0,
+        }
+      })
+    )
+
+    setTemplates(templatesWithCounts)
+  } catch (error: any) {
+    console.error('Failed to load templates:', error)
+    toast({
+      title: 'Error',
+      description: error.message || 'Failed to load templates',
+      variant: 'destructive',
+    })
+  } finally {
+    setLoadingTemplates(false)
+  }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
