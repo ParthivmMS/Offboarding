@@ -154,19 +154,7 @@ export default function TasksPage() {
         <p className="text-slate-600 mt-1">Manage your assigned offboarding tasks</p>
       </div>
 
-      {/* Debug Info Card - Remove after fixing */}
-      {Object.keys(debugInfo).length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
-          <CardHeader>
-            <CardTitle className="text-sm">Debug Info (Remove in production)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-xs overflow-auto">
-              {JSON.stringify(debugInfo, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
+      
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
