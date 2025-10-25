@@ -22,53 +22,83 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
   const [notes, setNotes] = useState(task.notes || '')
 
   const handleComplete = async () => {
-    if (!notes.trim()) {
-      toast({
-        title: 'Notes required',
-        description: 'Please add notes before completing the task',
-        variant: 'destructive',
+  if (!notes.trim()) {
+    toast({
+      title: 'Notes required',
+      description: 'Please add notes before completing the task',
+      variant: 'destructive',
+    })
+    return
+  }
+
+  setLoading(true)
+  try {
+    const supabase = createClient()
+
+    // Get current user info
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    // Get user name
+    const { data: userData } = await supabase
+      .from('users')
+      .select('name, email')
+      .eq('id', user?.id)
+      .single()
+
+    // Update task as completed
+    const { error } = await supabase
+      .from('tasks')
+      .update({
+        completed: true,
+        completed_at: new Date().toISOString(),
+        notes: notes.trim(),
       })
-      return
+      .eq('id', task.id)
+
+    if (error) {
+      console.error('Error completing task:', error)
+      throw error
     }
 
-    setLoading(true)
+    // Send email notification
     try {
-      const supabase = createClient()
-
-      // Update task as completed
-      const { error } = await supabase
-        .from('tasks')
-        .update({
-          completed: true,
-          completed_at: new Date().toISOString(),
+      await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'task_completed',
+          to: task.offboardings?.manager_email || userData?.email || 'admin@company.com',
+          taskName: task.task_name,
+          employeeName: task.offboardings?.employee_name || 'Employee',
+          completedBy: userData?.name || userData?.email || 'User',
           notes: notes.trim(),
-        })
-        .eq('id', task.id)
-
-      if (error) {
-        console.error('Error completing task:', error)
-        throw error
-      }
-
-      toast({
-        title: 'Task completed!',
-        description: 'The task has been marked as complete.',
+          offboardingId: task.offboarding_id,
+        }),
       })
-
-      // Refresh the parent component
-      if (onUpdate) {
-        onUpdate()
-      }
-    } catch (error: any) {
-      console.error('Failed to complete task:', error)
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to complete task',
-        variant: 'destructive',
-      })
-    } finally {
-      setLoading(false)
+    } catch (emailError) {
+      console.error('Failed to send email notification:', emailError)
+      // Don't fail the task completion if email fails
     }
+
+    toast({
+      title: 'Task completed!',
+      description: 'The task has been marked as complete.',
+    })
+
+    // Refresh the parent component
+    if (onUpdate) {
+      onUpdate()
+    }
+  } catch (error: any) {
+    console.error('Failed to complete task:', error)
+    toast({
+      title: 'Error',
+      description: error.message || 'Failed to complete task',
+      variant: 'destructive',
+    })
+  } finally {
+    setLoading(false)
+  }
   }
 
   const priorityColors: Record<string, string> = {
