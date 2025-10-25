@@ -14,6 +14,7 @@ export default function TasksPage() {
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [tasks, setTasks] = useState<any[]>([])
+  const [debugInfo, setDebugInfo] = useState<any>({})
 
   useEffect(() => {
     loadTasks()
@@ -22,27 +23,38 @@ export default function TasksPage() {
   async function loadTasks() {
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      console.log('=== TASKS PAGE DEBUG START ===')
+      
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      console.log('1. Auth User:', user?.id, user?.email)
+      console.log('1. Auth Error:', authError)
 
       if (!user) {
+        console.error('No user authenticated')
         router.push('/login')
         return
       }
 
       // Get user's organization
-      const { data: userData } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('organization_id')
         .eq('id', user.id)
         .maybeSingle()
 
+      console.log('2. User Data:', userData)
+      console.log('2. User Error:', userError)
+
       if (!userData?.organization_id) {
         console.error('No organization found for user')
+        setDebugInfo({ error: 'No organization found', user, userData })
         setLoading(false)
         return
       }
 
-      // Get all tasks for the user's organization
+      console.log('3. Organization ID:', userData.organization_id)
+
+      // Get all tasks with offboardings data
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select(`
@@ -58,23 +70,57 @@ export default function TasksPage() {
         `)
         .order('due_date', { ascending: true })
 
+      console.log('4. Tasks Query Result:', {
+        totalTasks: tasksData?.length || 0,
+        error: tasksError,
+        tasks: tasksData
+      })
+
       if (tasksError) {
-        console.error('Error loading tasks:', tasksError)
+        console.error('Tasks query error:', tasksError)
+        setDebugInfo({ error: 'Tasks query failed', tasksError })
         throw tasksError
       }
 
-      // Filter tasks that belong to user's organization
-      const organizationTasks = tasksData?.filter(
-        (task: any) => task.offboardings?.organization_id === userData.organization_id
-      ) || []
+      if (!tasksData || tasksData.length === 0) {
+        console.warn('No tasks returned from query')
+        setDebugInfo({ 
+          info: 'No tasks found',
+          organizationId: userData.organization_id,
+          user
+        })
+        setTasks([])
+        setLoading(false)
+        return
+      }
 
-      console.log('Loaded tasks:', organizationTasks.length)
+      // Filter tasks that belong to user's organization
+      const organizationTasks = tasksData.filter(
+        (task: any) => task.offboardings?.organization_id === userData.organization_id
+      )
+
+      console.log('5. Filtered Tasks:', {
+        before: tasksData.length,
+        after: organizationTasks.length,
+        userOrgId: userData.organization_id,
+        taskOrgIds: tasksData.map((t: any) => t.offboardings?.organization_id)
+      })
+
+      setDebugInfo({
+        success: true,
+        totalTasks: tasksData.length,
+        filteredTasks: organizationTasks.length,
+        organizationId: userData.organization_id
+      })
+
       setTasks(organizationTasks)
+      console.log('=== TASKS PAGE DEBUG END ===')
     } catch (error: any) {
       console.error('Failed to load tasks:', error)
+      setDebugInfo({ error: 'Exception thrown', exception: error })
       toast({
         title: 'Error',
-        description: 'Failed to load tasks',
+        description: error.message || 'Failed to load tasks',
         variant: 'destructive',
       })
     } finally {
@@ -107,6 +153,20 @@ export default function TasksPage() {
         <h1 className="text-3xl font-bold text-slate-900">My Tasks</h1>
         <p className="text-slate-600 mt-1">Manage your assigned offboarding tasks</p>
       </div>
+
+      {/* Debug Info Card - Remove after fixing */}
+      {Object.keys(debugInfo).length > 0 && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardHeader>
+            <CardTitle className="text-sm">Debug Info (Remove in production)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="text-xs overflow-auto">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
