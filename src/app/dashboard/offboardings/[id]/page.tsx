@@ -25,38 +25,68 @@ export default function OffboardingDetailPage() {
   }, [params.id])
 
   async function loadOffboarding() {
-    const supabase = createClient()
-    
-    // Get offboarding details
-    const { data: offboardingData, error: offboardingError } = await supabase
-      .from('offboardings')
-      .select('*')
-      .eq('id', params.id)
-      .single()
+    try {
+      const supabase = createClient()
+      
+      // Get offboarding details
+      const { data: offboardingData, error: offboardingError } = await supabase
+        .from('offboardings')
+        .select('*')
+        .eq('id', params.id)
+        .single()
 
-    if (offboardingError || !offboardingData) {
+      if (offboardingError || !offboardingData) {
+        console.error('Offboarding error:', offboardingError)
+        toast({
+          title: 'Error',
+          description: 'Offboarding not found',
+          variant: 'destructive',
+        })
+        router.push('/dashboard/offboardings')
+        return
+      }
+
+      // Get tasks
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('offboarding_id', params.id)
+        .order('order_index')
+
+      if (tasksError) {
+        console.error('Tasks error:', tasksError)
+      }
+
+      setOffboarding(offboardingData)
+      setTasks(tasksData || [])
+
+      // Check if all tasks are completed and update offboarding status
+      if (tasksData && tasksData.length > 0) {
+        const allCompleted = tasksData.every((t: any) => t.completed)
+        if (allCompleted && offboardingData.status !== 'completed') {
+          await supabase
+            .from('offboardings')
+            .update({ status: 'completed' })
+            .eq('id', params.id)
+          
+          offboardingData.status = 'completed'
+          setOffboarding(offboardingData)
+        }
+      }
+    } catch (error) {
+      console.error('Load offboarding error:', error)
       toast({
         title: 'Error',
-        description: 'Offboarding not found',
+        description: 'Failed to load offboarding details',
         variant: 'destructive',
       })
-      router.push('/dashboard/offboardings')
-      return
+    } finally {
+      setLoading(false)
     }
-
-    // Get tasks
-    const { data: tasksData } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('offboarding_id', params.id)
-      .order('order_index')
-
-    setOffboarding(offboardingData)
-    setTasks(tasksData || [])
-    setLoading(false)
   }
 
   function refreshData() {
+    setLoading(true)
     loadOffboarding()
   }
 
@@ -68,11 +98,20 @@ export default function OffboardingDetailPage() {
     )
   }
 
+  if (!offboarding) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-slate-500">Offboarding not found</p>
+      </div>
+    )
+  }
+
   const completedTasks = tasks.filter(t => t.completed).length
   const progress = tasks.length > 0 ? Math.round((completedTasks / tasks.length) * 100) : 0
   
-  const upcomingTasks = tasks.filter(t => !t.completed && t.due_date >= new Date().toISOString().split('T')[0])
-  const overdueTasks = tasks.filter(t => !t.completed && t.due_date < new Date().toISOString().split('T')[0])
+  const today = new Date().toISOString().split('T')[0]
+  const upcomingTasks = tasks.filter(t => !t.completed && t.due_date >= today)
+  const overdueTasks = tasks.filter(t => !t.completed && t.due_date < today)
   const completedTasksList = tasks.filter(t => t.completed)
 
   const statusColors: Record<string, string> = {
@@ -262,4 +301,4 @@ export default function OffboardingDetailPage() {
       </Card>
     </div>
   )
-                }
+}
