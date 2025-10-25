@@ -1,38 +1,105 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TaskCard from '@/components/dashboard/TaskCard'
 import { Clock, CheckCircle, AlertCircle } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 
-export const dynamic = 'force-dynamic'
+export default function TasksPage() {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(true)
+  const [tasks, setTasks] = useState<any[]>([])
 
-export default async function TasksPage() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
+  useEffect(() => {
+    loadTasks()
+  }, [])
 
-  // Get all tasks assigned to current user
-  const { data: allTasks } = await supabase
-    .from('tasks')
-    .select(`
-      *,
-      offboardings (
-        id,
-        employee_name,
-        employee_email,
-        last_working_day,
-        department
-      )
-    `)
-    .eq('assigned_to', user?.id)
-    .order('due_date', { ascending: true })
+  async function loadTasks() {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      // Get user's organization
+      const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (!userData?.organization_id) {
+        console.error('No organization found for user')
+        setLoading(false)
+        return
+      }
+
+      // Get all tasks for the user's organization
+      const { data: tasksData, error: tasksError } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          offboardings (
+            id,
+            employee_name,
+            employee_email,
+            last_working_day,
+            department,
+            organization_id
+          )
+        `)
+        .order('due_date', { ascending: true })
+
+      if (tasksError) {
+        console.error('Error loading tasks:', tasksError)
+        throw tasksError
+      }
+
+      // Filter tasks that belong to user's organization
+      const organizationTasks = tasksData?.filter(
+        (task: any) => task.offboardings?.organization_id === userData.organization_id
+      ) || []
+
+      console.log('Loaded tasks:', organizationTasks.length)
+      setTasks(organizationTasks)
+    } catch (error: any) {
+      console.error('Failed to load tasks:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to load tasks',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function refreshTasks() {
+    setLoading(true)
+    loadTasks()
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
   const today = new Date().toISOString().split('T')[0]
 
-  const upcomingTasks = allTasks?.filter(t => !t.completed && t.due_date >= today) || []
-  const overdueTasks = allTasks?.filter(t => !t.completed && t.due_date < today) || []
-  const completedTasks = allTasks?.filter(t => t.completed) || []
+  const upcomingTasks = tasks.filter(t => !t.completed && t.due_date >= today)
+  const overdueTasks = tasks.filter(t => !t.completed && t.due_date < today)
+  const completedTasks = tasks.filter(t => t.completed)
 
   return (
     <div className="space-y-6">
@@ -94,7 +161,7 @@ export default async function TasksPage() {
         <TabsContent value="upcoming" className="space-y-4 mt-6">
           {upcomingTasks.length > 0 ? (
             upcomingTasks.map((task) => (
-              <TaskCard key={task.id} task={task} />
+              <TaskCard key={task.id} task={task} onUpdate={refreshTasks} />
             ))
           ) : (
             <Card>
@@ -109,7 +176,7 @@ export default async function TasksPage() {
         <TabsContent value="overdue" className="space-y-4 mt-6">
           {overdueTasks.length > 0 ? (
             overdueTasks.map((task) => (
-              <TaskCard key={task.id} task={task} isOverdue />
+              <TaskCard key={task.id} task={task} isOverdue onUpdate={refreshTasks} />
             ))
           ) : (
             <Card>
@@ -124,7 +191,7 @@ export default async function TasksPage() {
         <TabsContent value="completed" className="space-y-4 mt-6">
           {completedTasks.length > 0 ? (
             completedTasks.map((task) => (
-              <TaskCard key={task.id} task={task} />
+              <TaskCard key={task.id} task={task} onUpdate={refreshTasks} />
             ))
           ) : (
             <Card>
