@@ -19,22 +19,100 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [stats, setStats] = useState({
+    activeOffboardings: 0,
+    completedLast30Days: 0,
+    pendingTasks: 0,
+    overdueTasks: 0,
+  })
+  const [recentOffboardings, setRecentOffboardings] = useState<any[]>([])
 
   useEffect(() => {
-    checkUser()
+    loadDashboard()
   }, [])
 
-  async function checkUser() {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      router.push('/login')
-      return
+  async function loadDashboard() {
+    try {
+      const supabase = createClient()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        router.push('/login')
+        return
+      }
+      
+      setUser(user)
+
+      // Get user's organization
+      const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (!userData?.organization_id) {
+        console.error('No organization found')
+        setLoading(false)
+        return
+      }
+
+      const orgId = userData.organization_id
+
+      // Get active offboardings count
+      const { count: activeCount } = await supabase
+        .from('offboardings')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('status', 'in_progress')
+
+      // Get completed offboardings in last 30 days
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      
+      const { count: completedCount } = await supabase
+        .from('offboardings')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('status', 'completed')
+        .gte('updated_at', thirtyDaysAgo.toISOString())
+
+      // Get all tasks for the organization
+      const { data: allTasks } = await supabase
+        .from('tasks')
+        .select(`
+          *,
+          offboardings!inner (
+            organization_id
+          )
+        `)
+        .eq('offboardings.organization_id', orgId)
+
+      const today = new Date().toISOString().split('T')[0]
+      
+      const pendingTasks = allTasks?.filter(t => !t.completed).length || 0
+      const overdueTasks = allTasks?.filter(t => !t.completed && t.due_date < today).length || 0
+
+      // Get recent offboardings
+      const { data: recentData } = await supabase
+        .from('offboardings')
+        .select('*')
+        .eq('organization_id', orgId)
+        .order('created_at', { ascending: false })
+        .limit(5)
+
+      setStats({
+        activeOffboardings: activeCount || 0,
+        completedLast30Days: completedCount || 0,
+        pendingTasks,
+        overdueTasks,
+      })
+
+      setRecentOffboardings(recentData || [])
+    } catch (error) {
+      console.error('Failed to load dashboard:', error)
+    } finally {
+      setLoading(false)
     }
-    
-    setUser(user)
-    setLoading(false)
   }
 
   async function handleLogout() {
@@ -232,7 +310,7 @@ export default function DashboardPage() {
               <Users className="h-4 w-4 text-slate-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{stats.activeOffboardings}</div>
               <p className="text-xs text-slate-500 mt-1">Currently in progress</p>
             </CardContent>
           </Card>
@@ -243,7 +321,7 @@ export default function DashboardPage() {
               <CheckCircle className="h-4 w-4 text-green-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{stats.completedLast30Days}</div>
               <p className="text-xs text-slate-500 mt-1">Last 30 days</p>
             </CardContent>
           </Card>
@@ -254,7 +332,7 @@ export default function DashboardPage() {
               <Clock className="h-4 w-4 text-blue-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold">{stats.pendingTasks}</div>
               <p className="text-xs text-slate-500 mt-1">Assigned to you</p>
             </CardContent>
           </Card>
@@ -265,37 +343,64 @@ export default function DashboardPage() {
               <AlertCircle className="h-4 w-4 text-red-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">0</div>
+              <div className="text-2xl font-bold text-red-600">{stats.overdueTasks}</div>
               <p className="text-xs text-slate-500 mt-1">Needs attention</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Actions */}
+        {/* Recent Offboardings or Quick Actions */}
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
+            <CardTitle>
+              {recentOffboardings.length > 0 ? 'Recent Offboardings' : 'Quick Actions'}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-center py-12">
-              <Users className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-              <h3 className="text-lg font-semibold mb-2">No offboardings yet</h3>
-              <p className="text-slate-500 mb-6">Start your first employee offboarding process</p>
-              <Button onClick={() => router.push('/dashboard/offboardings/new')}>
-                Start New Offboarding
-              </Button>
-            </div>
+            {recentOffboardings.length > 0 ? (
+              <div className="space-y-4">
+                {recentOffboardings.map((offboarding) => (
+                  <div 
+                    key={offboarding.id}
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 cursor-pointer"
+                    onClick={() => router.push(`/dashboard/offboardings/${offboarding.id}`)}
+                  >
+                    <div>
+                      <p className="font-medium">{offboarding.employee_name}</p>
+                      <p className="text-sm text-slate-500">
+                        {offboarding.role} • {offboarding.department}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-medium capitalize">
+                        {offboarding.status.replace('_', ' ')}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Last day: {new Date(offboarding.last_working_day).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => router.push('/dashboard/offboardings')}
+                >
+                  View All Offboardings
+                </Button>
+              </div>
+            ) : (
+              <div className="text-center py-12">
+                <Users className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+                <h3 className="text-lg font-semibold mb-2">No offboardings yet</h3>
+                <p className="text-slate-500 mb-6">Start your first employee offboarding process</p>
+                <Button onClick={() => router.push('/dashboard/offboardings/new')}>
+                  Start New Offboarding
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
-
-        {/* Success Message */}
-        <div className="mt-8 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-green-800 font-medium">🎉 Congratulations!</p>
-          <p className="text-green-700 text-sm mt-1">
-            Your Employee Offboarding Platform is successfully deployed and running! 
-            All navigation buttons are now working.
-          </p>
-        </div>
       </main>
     </div>
   )
