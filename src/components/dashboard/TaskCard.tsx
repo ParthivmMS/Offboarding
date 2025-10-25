@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { CheckCircle, Clock, User, Calendar, FileText } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 interface TaskCardProps {
   task: any
@@ -16,23 +16,38 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCardProps) {
-  const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [notes, setNotes] = useState(task.notes || '')
 
   const handleComplete = async () => {
+    if (!notes.trim()) {
+      toast({
+        title: 'Notes required',
+        description: 'Please add notes before completing the task',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setLoading(true)
     try {
-      const response = await fetch(`/api/tasks/${task.id}/complete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ notes }),
-      })
+      const supabase = createClient()
 
-      if (!response.ok) {
-        throw new Error('Failed to complete task')
+      // Update task as completed
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          completed: true,
+          completed_at: new Date().toISOString(),
+          notes: notes.trim(),
+        })
+        .eq('id', task.id)
+
+      if (error) {
+        console.error('Error completing task:', error)
+        throw error
       }
 
       toast({
@@ -40,14 +55,15 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
         description: 'The task has been marked as complete.',
       })
 
+      // Refresh the parent component
       if (onUpdate) {
         onUpdate()
       }
-      router.refresh()
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Failed to complete task:', error)
       toast({
         title: 'Error',
-        description: 'Failed to complete task',
+        description: error.message || 'Failed to complete task',
         variant: 'destructive',
       })
     } finally {
@@ -97,18 +113,22 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
             )}
 
             <div className="flex flex-wrap gap-4 text-sm text-slate-500 mb-4">
-              <div className="flex items-center gap-1">
-                <User className="w-4 h-4" />
-                <span>{task.offboardings?.employee_name || 'N/A'}</span>
-              </div>
+              {task.assigned_department && (
+                <div className="flex items-center gap-1">
+                  <User className="w-4 h-4" />
+                  <span>{task.assigned_department}</span>
+                </div>
+              )}
               <div className="flex items-center gap-1">
                 <Calendar className="w-4 h-4" />
                 <span>Due: {formatDate(task.due_date)}</span>
               </div>
-              <div className="flex items-center gap-1">
-                <FileText className="w-4 h-4" />
-                <span>{task.category}</span>
-              </div>
+              {task.category && (
+                <div className="flex items-center gap-1">
+                  <FileText className="w-4 h-4" />
+                  <span>{task.category}</span>
+                </div>
+              )}
             </div>
 
             {task.instructions && (
@@ -119,15 +139,16 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
             )}
 
             {task.completed && task.completed_at && (
-              <div className="text-sm text-slate-500 mb-3">
+              <div className="text-sm text-green-600 font-medium mb-3 flex items-center gap-1">
+                <CheckCircle className="w-4 h-4" />
                 Completed on {formatDate(task.completed_at)}
               </div>
             )}
 
             {task.notes && (
               <div className="bg-slate-50 border rounded p-3 mb-3">
-                <p className="text-sm font-medium mb-1">Notes:</p>
-                <p className="text-sm text-slate-600">{task.notes}</p>
+                <p className="text-sm font-medium mb-1">Completion Notes:</p>
+                <p className="text-sm text-slate-600 whitespace-pre-line">{task.notes}</p>
               </div>
             )}
           </div>
@@ -147,23 +168,36 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
 
         {showNotes && !task.completed && (
           <div className="mt-4 space-y-3">
-            <Textarea
-              placeholder="Add notes about completing this task..."
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-            />
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">
+                Add completion notes *
+              </label>
+              <Textarea
+                placeholder="Describe what actions were taken to complete this task..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={4}
+                className="resize-none"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Notes are required to complete the task
+              </p>
+            </div>
             <div className="flex gap-2">
               <Button
                 onClick={handleComplete}
-                disabled={loading}
+                disabled={loading || !notes.trim()}
                 className="bg-green-600 hover:bg-green-700"
               >
                 {loading ? 'Completing...' : 'Mark as Complete'}
               </Button>
               <Button
-                onClick={() => setShowNotes(false)}
+                onClick={() => {
+                  setShowNotes(false)
+                  setNotes(task.notes || '')
+                }}
                 variant="outline"
+                disabled={loading}
               >
                 Cancel
               </Button>
