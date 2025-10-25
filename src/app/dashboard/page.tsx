@@ -66,15 +66,15 @@ export default function DashboardPage() {
         .eq('status', 'in_progress')
 
       // Get completed offboardings in last 30 days
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      
-      const { count: completedCount } = await supabase
-        .from('offboardings')
-        .select('*', { count: 'exact', head: true })
-        .eq('organization_id', orgId)
-        .eq('status', 'completed')
-        .gte('updated_at', thirtyDaysAgo.toISOString())
+const thirtyDaysAgo = new Date()
+thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+const { count: completedCount } = await supabase
+  .from('offboardings')
+  .select('*', { count: 'exact', head: true })
+  .eq('organization_id', orgId)
+  .eq('status', 'completed')
+  .gte('created_at', thirtyDaysAgo.toISOString())
 
       // Get all tasks for the organization
       const { data: allTasks } = await supabase
