@@ -140,16 +140,31 @@ export default function NewOffboardingPage() {
 
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
 
-      if (!user) {
+      if (authError || !user) {
+        console.error('Auth error:', authError)
         throw new Error('Not authenticated')
       }
 
+      console.log('User authenticated:', user.id)
+
       // Use the organizationId from state (already fetched)
       if (!organizationId) {
+        console.error('No organization ID in state')
         throw new Error('Organization not found')
       }
+
+      console.log('Creating offboarding with data:', {
+        organization_id: organizationId,
+        employee_name: formData.employee_name,
+        employee_email: formData.employee_email,
+        department: formData.department,
+        role: formData.role,
+        last_working_day: formData.last_working_day,
+        template_id: formData.template_id,
+        created_by: user.id,
+      })
 
       // Create offboarding
       const { data: offboarding, error: offboardingError } = await supabase
@@ -173,8 +188,11 @@ export default function NewOffboardingPage() {
 
       if (offboardingError) {
         console.error('Offboarding creation error:', offboardingError)
-        throw new Error('Failed to create offboarding')
+        console.error('Error details:', JSON.stringify(offboardingError, null, 2))
+        throw new Error(offboardingError.message || 'Failed to create offboarding')
       }
+
+      console.log('Offboarding created:', offboarding)
 
       // Get template tasks
       const { data: templateTasks, error: tasksError } = await supabase
@@ -183,18 +201,25 @@ export default function NewOffboardingPage() {
         .eq('template_id', formData.template_id)
         .order('order_index')
 
-      if (tasksError || !templateTasks || templateTasks.length === 0) {
+      if (tasksError) {
         console.error('Template tasks error:', tasksError)
-        // Clean up offboarding if no tasks
+        await supabase.from('offboardings').delete().eq('id', offboarding.id)
+        throw new Error('Failed to fetch template tasks')
+      }
+
+      if (!templateTasks || templateTasks.length === 0) {
+        console.error('No template tasks found')
         await supabase.from('offboardings').delete().eq('id', offboarding.id)
         throw new Error('Template has no tasks')
       }
+
+      console.log('Template tasks found:', templateTasks.length)
 
       // Create tasks from template
       const lastWorkingDay = new Date(formData.last_working_day)
       const tasks = templateTasks.map((templateTask) => {
         const dueDate = new Date(lastWorkingDay)
-        dueDate.setDate(dueDate.getDate() + templateTask.due_date_offset)
+        dueDate.setDate(dueDate.getDate() + (templateTask.due_date_offset || 0))
 
         return {
           offboarding_id: offboarding.id,
@@ -210,16 +235,20 @@ export default function NewOffboardingPage() {
         }
       })
 
+      console.log('Creating tasks:', tasks.length)
+
       const { error: insertTasksError } = await supabase
         .from('tasks')
         .insert(tasks)
 
       if (insertTasksError) {
         console.error('Tasks insertion error:', insertTasksError)
-        // Clean up offboarding if tasks fail
+        console.error('Error details:', JSON.stringify(insertTasksError, null, 2))
         await supabase.from('offboardings').delete().eq('id', offboarding.id)
-        throw new Error('Failed to create tasks')
+        throw new Error(insertTasksError.message || 'Failed to create tasks')
       }
+
+      console.log('Tasks created successfully')
 
       toast({
         title: 'Success!',
