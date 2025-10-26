@@ -261,20 +261,21 @@ try {
     .single()
 
   await fetch('/api/send-email', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      type: 'offboarding_created',
-      departments,
-      employeeName: formData.employee_name,
-      employeeDepartment: formData.department,
-      lastWorkingDay: formData.last_working_day,
-      taskCount: tasks.length,
-      createdBy: currentUser?.name || currentUser?.email || 'Admin',
-      offboardingId: offboarding.id,
-      managerEmail: formData.manager_email || undefined,
-    }),
-  })
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    type: 'offboarding_created',
+    departments,
+    employeeName: formData.employee_name,
+    employeeDepartment: formData.department,
+    lastWorkingDay: formData.last_working_day,
+    taskCount: tasks.length,
+    createdBy: currentUser?.name || currentUser?.email || 'Admin',
+    offboardingId: offboarding.id,
+    managerEmail: formData.manager_email || undefined,
+    organizationId: userData.organization_id, // ← ADD THIS
+  }),
+})
   
   console.log('Offboarding created emails sent')
 } catch (emailError) {
