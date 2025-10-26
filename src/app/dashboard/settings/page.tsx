@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
+import { ArrowLeft, Mail, User, Building, Save } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -48,14 +49,26 @@ export default function SettingsPage() {
     try {
       const supabase = createClient()
       
-      const { error } = await supabase.auth.updateUser({
+      // Update auth metadata
+      const { error: authError } = await supabase.auth.updateUser({
         data: {
           name: formData.name,
           organization_name: formData.organization,
         }
       })
 
-      if (error) throw error
+      if (authError) throw authError
+
+      // Also update users table
+      const { error: dbError } = await supabase
+        .from('users')
+        .update({ name: formData.name })
+        .eq('id', user.id)
+
+      if (dbError) {
+        console.error('Error updating users table:', dbError)
+        // Don't throw - auth update was successful
+      }
 
       toast({
         title: 'Success!',
@@ -81,13 +94,18 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
-        <p className="text-slate-600 mt-1">Manage your account settings</p>
+    <div className="space-y-6 max-w-4xl">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Settings</h1>
+          <p className="text-slate-600 mt-1">Manage your account settings and preferences</p>
+        </div>
       </div>
 
-      <div className="grid gap-6 max-w-2xl">
+      <div className="grid gap-6">
         {/* Profile Settings */}
         <Card>
           <CardHeader>
@@ -111,7 +129,7 @@ export default function SettingsPage() {
                 id="email"
                 value={formData.email}
                 disabled
-                className="bg-slate-50"
+                className="bg-slate-50 cursor-not-allowed"
               />
               <p className="text-xs text-slate-500">Email cannot be changed</p>
             </div>
@@ -127,7 +145,53 @@ export default function SettingsPage() {
             </div>
 
             <Button onClick={handleSave} disabled={saving}>
+              <Save className="w-4 h-4 mr-2" />
               {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Organization Settings */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Organization Settings</CardTitle>
+            <CardDescription>Configure organization-wide settings</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button 
+              variant="outline" 
+              className="w-full justify-start h-auto py-4"
+              onClick={() => router.push('/dashboard/settings/department-emails')}
+            >
+              <Mail className="w-5 h-5 mr-3 flex-shrink-0" />
+              <div className="text-left">
+                <p className="font-medium">Department Emails</p>
+                <p className="text-sm text-slate-500">Configure notification emails for each department</p>
+              </div>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              className="w-full justify-start h-auto py-4 opacity-50 cursor-not-allowed"
+              disabled
+            >
+              <User className="w-5 h-5 mr-3 flex-shrink-0" />
+              <div className="text-left">
+                <p className="font-medium">User Management</p>
+                <p className="text-sm text-slate-500">Invite team members and assign roles (Coming Soon)</p>
+              </div>
+            </Button>
+
+            <Button 
+              variant="outline" 
+              className="w-full justify-start h-auto py-4 opacity-50 cursor-not-allowed"
+              disabled
+            >
+              <Building className="w-5 h-5 mr-3 flex-shrink-0" />
+              <div className="text-left">
+                <p className="font-medium">Organization Details</p>
+                <p className="text-sm text-slate-500">Update company name and information (Coming Soon)</p>
+              </div>
             </Button>
           </CardContent>
         </Card>
