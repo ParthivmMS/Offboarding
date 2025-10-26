@@ -5,14 +5,14 @@ const resend = new Resend(process.env.RESEND_API_KEY)
 // Department email configuration
 // TODO: Make these configurable per organization in the future
 export const DEPARTMENT_EMAILS: Record<string, string> = {
-  'IT': 'it@company.com',
-  'HR': 'hr@company.com',
-  'Finance': 'finance@company.com',
-  'Operations': 'ops@company.com',
-  'Sales': 'sales@company.com',
-  'Marketing': 'marketing@company.com',
-  'Engineering': 'engineering@company.com',
-  'Executive': 'exec@company.com',
+  'IT': 'parthivmssince2005@gmail.com',
+  'HR': 'parthivmssince2005@gmail.com',
+  'Finance': 'parthivmssince2005@gmail.com',
+  'Operations': 'parthivmssince2005@gmail.com',
+  'Sales': 'parthivmssince2005@gmail.com',
+  'Marketing': 'parthivmssince2005@gmail.com',
+  'Engineering': 'parthivmssince2005@gmail.com',
+  'Executive': 'parthivmssince2005@gmail.com',
 }
 
 interface SendTaskAssignedEmailParams {
