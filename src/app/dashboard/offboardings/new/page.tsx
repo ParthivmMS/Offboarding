@@ -238,24 +238,56 @@ export default function NewOffboardingPage() {
       console.log('Creating tasks:', tasks.length)
 
       const { error: insertTasksError } = await supabase
-        .from('tasks')
-        .insert(tasks)
+  .from('tasks')
+  .insert(tasks)
 
-      if (insertTasksError) {
-        console.error('Tasks insertion error:', insertTasksError)
-        console.error('Error details:', JSON.stringify(insertTasksError, null, 2))
-        await supabase.from('offboardings').delete().eq('id', offboarding.id)
-        throw new Error(insertTasksError.message || 'Failed to create tasks')
-      }
+if (insertTasksError) {
+  console.error('Tasks insertion error:', insertTasksError)
+  // Clean up offboarding if tasks fail
+  await supabase.from('offboardings').delete().eq('id', offboarding.id)
+  throw new Error('Failed to create tasks')
+}
 
-      console.log('Tasks created successfully')
+// Send email notifications to departments
+try {
+  // Get unique departments from tasks
+  const departments = [...new Set(templateTasks.map(t => t.assigned_department).filter(Boolean))]
+  
+  // Get current user name
+  const { data: currentUser } = await supabase
+    .from('users')
+    .select('name, email')
+    .eq('id', user.id)
+    .single()
 
-      toast({
-        title: 'Success!',
-        description: `Offboarding process started for ${formData.employee_name}`,
-      })
+  await fetch('/api/send-email', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      type: 'offboarding_created',
+      departments,
+      employeeName: formData.employee_name,
+      employeeDepartment: formData.department,
+      lastWorkingDay: formData.last_working_day,
+      taskCount: tasks.length,
+      createdBy: currentUser?.name || currentUser?.email || 'Admin',
+      offboardingId: offboarding.id,
+      managerEmail: formData.manager_email || undefined,
+    }),
+  })
+  
+  console.log('Offboarding created emails sent')
+} catch (emailError) {
+  console.error('Failed to send offboarding created emails:', emailError)
+  // Don't fail the offboarding creation if emails fail
+}
 
-      router.push(`/dashboard/offboardings/${offboarding.id}`)
+toast({
+  title: 'Success!',
+  description: `Offboarding process started for ${formData.employee_name}`,
+})
+
+router.push(`/dashboard/offboardings/${offboarding.id}`)
     } catch (error: any) {
       console.error('Submit error:', error)
       toast({
