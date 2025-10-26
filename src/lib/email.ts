@@ -1,18 +1,53 @@
 import { Resend } from 'resend'
+import { createClient } from '@/lib/supabase/client'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-// Department email configuration
-// TODO: Make these configurable per organization in the future
-export const DEPARTMENT_EMAILS: Record<string, string> = {
-  'IT': 'parthivmssince2005@gmail.com',
-  'HR': 'parthivmssince2005@gmail.com',
-  'Finance': 'parthivmssince2005@gmail.com',
-  'Operations': 'parthivmssince2005@gmail.com',
-  'Sales': 'parthivmssince2005@gmail.com',
-  'Marketing': 'parthivmssince2005@gmail.com',
-  'Engineering': 'parthivmssince2005@gmail.com',
-  'Executive': 'parthivmssince2005@gmail.com',
+// Fallback department emails (used if database lookup fails)
+const FALLBACK_DEPARTMENT_EMAILS: Record<string, string> = {
+  'IT': 'it@company.com',
+  'HR': 'hr@company.com',
+  'Finance': 'finance@company.com',
+  'Operations': 'ops@company.com',
+  'Sales': 'sales@company.com',
+  'Marketing': 'marketing@company.com',
+  'Engineering': 'engineering@company.com',
+  'Executive': 'exec@company.com',
+}
+
+/**
+ * Get department emails from database for the organization
+ */
+async function getDepartmentEmails(organizationId: string): Promise<Record<string, string>> {
+  try {
+    const supabase = createClient()
+    
+    const { data, error } = await supabase
+      .from('department_emails')
+      .select('department, email')
+      .eq('organization_id', organizationId)
+
+    if (error) {
+      console.error('Error fetching department emails:', error)
+      return FALLBACK_DEPARTMENT_EMAILS
+    }
+
+    if (!data || data.length === 0) {
+      console.warn('No department emails found, using fallback')
+      return FALLBACK_DEPARTMENT_EMAILS
+    }
+
+    // Convert array to object
+    const departmentEmails: Record<string, string> = {}
+    data.forEach(item => {
+      departmentEmails[item.department] = item.email
+    })
+
+    return departmentEmails
+  } catch (error) {
+    console.error('Failed to get department emails:', error)
+    return FALLBACK_DEPARTMENT_EMAILS
+  }
 }
 
 interface SendTaskAssignedEmailParams {
@@ -44,6 +79,7 @@ interface SendOffboardingCreatedEmailParams {
   createdBy: string
   offboardingId: string
   managerEmail?: string
+  organizationId: string
 }
 
 interface SendOffboardingCompletedEmailParams {
@@ -64,13 +100,17 @@ export async function sendOffboardingCreatedEmail({
   createdBy,
   offboardingId,
   managerEmail,
+  organizationId,
 }: SendOffboardingCreatedEmailParams) {
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://offboarding.vercel.app'
     
+    // Get department emails from database
+    const departmentEmailsMap = await getDepartmentEmails(organizationId)
+    
     // Get unique department emails
     const departmentEmails = departments
-      .map(dept => DEPARTMENT_EMAILS[dept])
+      .map(dept => departmentEmailsMap[dept])
       .filter((email, index, self) => email && self.indexOf(email) === index)
     
     // Add manager email if provided
