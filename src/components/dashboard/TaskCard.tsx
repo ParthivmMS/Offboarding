@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
-import { CheckCircle, Clock, User, Calendar, FileText } from 'lucide-react'
+import { CheckCircle, Clock, User, Calendar, FileText, Paperclip } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import FileUpload from './FileUpload'
+import AttachmentsList from './AttachmentsList'
 
 interface TaskCardProps {
   task: any
@@ -20,170 +22,171 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
   const [loading, setLoading] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
   const [notes, setNotes] = useState(task.notes || '')
+  const [attachmentsRefresh, setAttachmentsRefresh] = useState(0)
 
   const handleComplete = async () => {
-  if (!notes.trim()) {
-    toast({
-      title: 'Notes required',
-      description: 'Please add notes before completing the task',
-      variant: 'destructive',
-    })
-    return
-  }
-
-  setLoading(true)
-  try {
-    const supabase = createClient()
-
-    // Get current user info
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    // Get user name
-    const { data: userData } = await supabase
-      .from('users')
-      .select('name, email')
-      .eq('id', user?.id)
-      .single()
-
-    // Update task as completed
-    const { error } = await supabase
-      .from('tasks')
-      .update({
-        completed: true,
-        completed_at: new Date().toISOString(),
-        notes: notes.trim(),
+    if (!notes.trim()) {
+      toast({
+        title: 'Notes required',
+        description: 'Please add notes before completing the task',
+        variant: 'destructive',
       })
-      .eq('id', task.id)
-
-    if (error) {
-      console.error('Error completing task:', error)
-      throw error
+      return
     }
 
-    // Get offboarding details for email
-    const { data: offboardingData } = await supabase
-      .from('offboardings')
-      .select('*, tasks(id, completed)')
-      .eq('id', task.offboarding_id)
-      .single()
-
-    // Send task completed email to manager and creator
+    setLoading(true)
     try {
-      const recipients = []
-      if (offboardingData?.manager_email) {
-        recipients.push(offboardingData.manager_email)
-      }
+      const supabase = createClient()
+
+      // Get current user info
+      const { data: { user } } = await supabase.auth.getUser()
       
-      // Also send to the person who created the offboarding
-      const { data: creator } = await supabase
+      // Get user name
+      const { data: userData } = await supabase
         .from('users')
-        .select('email')
-        .eq('id', offboardingData?.created_by)
+        .select('name, email')
+        .eq('id', user?.id)
         .single()
-      
-      if (creator?.email && !recipients.includes(creator.email)) {
-        recipients.push(creator.email)
-      }
 
-      if (recipients.length > 0) {
-        await fetch('/api/send-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'task_completed',
-            to: recipients,
-            taskName: task.task_name,
-            employeeName: offboardingData?.employee_name || 'Employee',
-            completedBy: userData?.name || userData?.email || 'User',
-            notes: notes.trim(),
-            offboardingId: task.offboarding_id,
-          }),
+      // Update task as completed
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          completed: true,
+          completed_at: new Date().toISOString(),
+          notes: notes.trim(),
         })
+        .eq('id', task.id)
+
+      if (error) {
+        console.error('Error completing task:', error)
+        throw error
       }
-    } catch (emailError) {
-      console.error('Failed to send task completed email:', emailError)
-      // Don't fail the task completion if email fails
-    }
 
-    // Check if all tasks are now completed
-    if (offboardingData) {
-      const allTasksCompleted = offboardingData.tasks.every((t: any) => 
-        t.id === task.id ? true : t.completed
-      )
+      // Get offboarding details for email
+      const { data: offboardingData } = await supabase
+        .from('offboardings')
+        .select('*, tasks(id, completed)')
+        .eq('id', task.offboarding_id)
+        .single()
 
-      if (allTasksCompleted) {
-        // Update offboarding status to completed
-        await supabase
-          .from('offboardings')
-          .update({ status: 'completed' })
-          .eq('id', task.offboarding_id)
+      // Send task completed email to manager and creator
+      try {
+        const recipients = []
+        if (offboardingData?.manager_email) {
+          recipients.push(offboardingData.manager_email)
+        }
+        
+        // Also send to the person who created the offboarding
+        const { data: creator } = await supabase
+          .from('users')
+          .select('email')
+          .eq('id', offboardingData?.created_by)
+          .single()
+        
+        if (creator?.email && !recipients.includes(creator.email)) {
+          recipients.push(creator.email)
+        }
 
-        // Send offboarding completed email
-        try {
-          const recipients = []
-          if (offboardingData.manager_email) recipients.push(offboardingData.manager_email)
-          
-          // Add HR and creator
-          const { data: creator } = await supabase
-            .from('users')
-            .select('email')
-            .eq('id', offboardingData.created_by)
-            .single()
-          
-          if (creator?.email && !recipients.includes(creator.email)) {
-            recipients.push(creator.email)
-          }
-
-          // Add HR department email
-          const hrEmail = 'hr@company.com' // From DEPARTMENT_EMAILS
-          if (!recipients.includes(hrEmail)) {
-            recipients.push(hrEmail)
-          }
-
+        if (recipients.length > 0) {
           await fetch('/api/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              type: 'offboarding_completed',
+              type: 'task_completed',
               to: recipients,
-              employeeName: offboardingData.employee_name,
-              department: offboardingData.department,
-              completionDate: new Date().toISOString(),
+              taskName: task.task_name,
+              employeeName: offboardingData?.employee_name || 'Employee',
+              completedBy: userData?.name || userData?.email || 'User',
+              notes: notes.trim(),
               offboardingId: task.offboarding_id,
-              totalTasks: offboardingData.tasks.length,
             }),
           })
-        } catch (emailError) {
-          console.error('Failed to send offboarding completed email:', emailError)
         }
-
-        toast({
-          title: '🎉 Offboarding Completed!',
-          description: `All tasks completed for ${offboardingData.employee_name}`,
-        })
-      } else {
-        toast({
-          title: 'Task completed!',
-          description: 'The task has been marked as complete.',
-        })
+      } catch (emailError) {
+        console.error('Failed to send task completed email:', emailError)
+        // Don't fail the task completion if email fails
       }
-    }
 
-    // Refresh the parent component
-    if (onUpdate) {
-      onUpdate()
+      // Check if all tasks are now completed
+      if (offboardingData) {
+        const allTasksCompleted = offboardingData.tasks.every((t: any) => 
+          t.id === task.id ? true : t.completed
+        )
+
+        if (allTasksCompleted) {
+          // Update offboarding status to completed
+          await supabase
+            .from('offboardings')
+            .update({ status: 'completed' })
+            .eq('id', task.offboarding_id)
+
+          // Send offboarding completed email
+          try {
+            const recipients = []
+            if (offboardingData.manager_email) recipients.push(offboardingData.manager_email)
+            
+            // Add HR and creator
+            const { data: creator } = await supabase
+              .from('users')
+              .select('email')
+              .eq('id', offboardingData.created_by)
+              .single()
+            
+            if (creator?.email && !recipients.includes(creator.email)) {
+              recipients.push(creator.email)
+            }
+
+            // Add HR department email
+            const hrEmail = 'hr@company.com' // From DEPARTMENT_EMAILS
+            if (!recipients.includes(hrEmail)) {
+              recipients.push(hrEmail)
+            }
+
+            await fetch('/api/send-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                type: 'offboarding_completed',
+                to: recipients,
+                employeeName: offboardingData.employee_name,
+                department: offboardingData.department,
+                completionDate: new Date().toISOString(),
+                offboardingId: task.offboarding_id,
+                totalTasks: offboardingData.tasks.length,
+              }),
+            })
+          } catch (emailError) {
+            console.error('Failed to send offboarding completed email:', emailError)
+          }
+
+          toast({
+            title: '🎉 Offboarding Completed!',
+            description: `All tasks completed for ${offboardingData.employee_name}`,
+          })
+        } else {
+          toast({
+            title: 'Task completed!',
+            description: 'The task has been marked as complete.',
+          })
+        }
+      }
+
+      // Refresh the parent component
+      if (onUpdate) {
+        onUpdate()
+      }
+    } catch (error: any) {
+      console.error('Failed to complete task:', error)
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to complete task',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoading(false)
     }
-  } catch (error: any) {
-    console.error('Failed to complete task:', error)
-    toast({
-      title: 'Error',
-      description: error.message || 'Failed to complete task',
-      variant: 'destructive',
-    })
-  } finally {
-    setLoading(false)
   }
-}
 
   const priorityColors: Record<string, string> = {
     High: 'bg-red-100 text-red-700 border-red-200',
@@ -265,6 +268,21 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
                 <p className="text-sm text-slate-600 whitespace-pre-line">{task.notes}</p>
               </div>
             )}
+
+            {/* Attachments Section */}
+            <div className="mt-4 space-y-3 pt-4 border-t">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Paperclip className="w-4 h-4" />
+                <span>Attachments</span>
+              </div>
+              <AttachmentsList taskId={task.id} refreshTrigger={attachmentsRefresh} />
+              {!task.completed && (
+                <FileUpload 
+                  taskId={task.id} 
+                  onUploadComplete={() => setAttachmentsRefresh(prev => prev + 1)} 
+                />
+              )}
+            </div>
           </div>
 
           {!task.completed && (
@@ -321,4 +339,4 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
       </CardContent>
     </Card>
   )
-}
+              }
