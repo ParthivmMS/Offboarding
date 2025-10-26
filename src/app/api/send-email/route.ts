@@ -3,7 +3,8 @@ import {
   sendTaskAssignedEmail, 
   sendTaskCompletedEmail, 
   sendOffboardingCompletedEmail,
-  sendTaskDueReminderEmail 
+  sendTaskDueReminderEmail,
+  sendOffboardingCreatedEmail
 } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
     let result
 
     switch (type) {
+      case 'offboarding_created':
+        result = await sendOffboardingCreatedEmail(params)
+        break
       case 'task_assigned':
         result = await sendTaskAssignedEmail(params)
         break
