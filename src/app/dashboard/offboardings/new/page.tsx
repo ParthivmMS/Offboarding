@@ -49,41 +49,36 @@ export default function NewOffboardingPage() {
       console.log('Auth User ID:', user.id)
       console.log('Auth User Email:', user.email)
 
-      // Try to get organization_id from users table
+      // Get user's organization
       const { data: userData, error: userDataError } = await supabase
         .from('users')
         .select('organization_id')
         .eq('id', user.id)
         .maybeSingle()
 
-      let orgId = userData?.organization_id
-
-      // If not found, try by email
-      if (!orgId) {
-        console.log('Organization not found by user ID, trying email...')
-        const { data: userByEmail } = await supabase
-          .from('users')
-          .select('organization_id')
-          .eq('email', user.email)
-          .maybeSingle()
-        
-        orgId = userByEmail?.organization_id
+      if (userDataError) {
+        console.error('Error fetching user data:', userDataError)
+        throw new Error('Failed to fetch user data')
       }
 
-      // If still not found, use hardcoded (temporary fallback)
-      if (!orgId) {
-        console.warn('Organization not found in database, using fallback')
-        orgId = '41bf5b56-20c1-47c9-a7e1-05edd3190c61'
+      if (!userData) {
+        console.error('No user data found')
+        throw new Error('User data not found')
       }
 
-      console.log('Using Organization ID:', orgId)
-      setOrganizationId(orgId)
+      if (!userData.organization_id) {
+        console.error('User has no organization_id:', userData)
+        throw new Error('User is not associated with an organization')
+      }
+
+      console.log('Fetching templates for organization:', userData.organization_id)
+      setOrganizationId(userData.organization_id)
 
       // Get templates (both default and organization-specific)
       const { data: templatesData, error: templatesError } = await supabase
         .from('templates')
         .select('id, name, role_type, description, is_default')
-        .or(`is_default.eq.true,organization_id.eq.${orgId}`)
+        .or(`is_default.eq.true,organization_id.eq.${userData.organization_id}`)
         .eq('is_active', true)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: false })
@@ -140,37 +135,28 @@ export default function NewOffboardingPage() {
 
     try {
       const supabase = createClient()
-      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
 
-      if (authError || !user) {
-        console.error('Auth error:', authError)
+      if (!user) {
         throw new Error('Not authenticated')
       }
 
-      console.log('User authenticated:', user.id)
+      // Get user's organization
+      const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id')
+        .eq('id', user.id)
+        .single()
 
-      // Use the organizationId from state (already fetched)
-      if (!organizationId) {
-        console.error('No organization ID in state')
+      if (!userData || !userData.organization_id) {
         throw new Error('Organization not found')
       }
-
-      console.log('Creating offboarding with data:', {
-        organization_id: organizationId,
-        employee_name: formData.employee_name,
-        employee_email: formData.employee_email,
-        department: formData.department,
-        role: formData.role,
-        last_working_day: formData.last_working_day,
-        template_id: formData.template_id,
-        created_by: user.id,
-      })
 
       // Create offboarding
       const { data: offboarding, error: offboardingError } = await supabase
         .from('offboardings')
         .insert({
-          organization_id: organizationId,
+          organization_id: userData.organization_id,
           employee_name: formData.employee_name,
           employee_email: formData.employee_email,
           department: formData.department,
@@ -188,11 +174,8 @@ export default function NewOffboardingPage() {
 
       if (offboardingError) {
         console.error('Offboarding creation error:', offboardingError)
-        console.error('Error details:', JSON.stringify(offboardingError, null, 2))
-        throw new Error(offboardingError.message || 'Failed to create offboarding')
+        throw new Error('Failed to create offboarding')
       }
-
-      console.log('Offboarding created:', offboarding)
 
       // Get template tasks
       const { data: templateTasks, error: tasksError } = await supabase
@@ -201,19 +184,12 @@ export default function NewOffboardingPage() {
         .eq('template_id', formData.template_id)
         .order('order_index')
 
-      if (tasksError) {
+      if (tasksError || !templateTasks || templateTasks.length === 0) {
         console.error('Template tasks error:', tasksError)
-        await supabase.from('offboardings').delete().eq('id', offboarding.id)
-        throw new Error('Failed to fetch template tasks')
-      }
-
-      if (!templateTasks || templateTasks.length === 0) {
-        console.error('No template tasks found')
+        // Clean up offboarding if no tasks
         await supabase.from('offboardings').delete().eq('id', offboarding.id)
         throw new Error('Template has no tasks')
       }
-
-      console.log('Template tasks found:', templateTasks.length)
 
       // Create tasks from template
       const lastWorkingDay = new Date(formData.last_working_day)
@@ -235,67 +211,62 @@ export default function NewOffboardingPage() {
         }
       })
 
-      console.log('Creating tasks:', tasks.length)
-const { error: insertTasksError } = await supabase
-  .from('tasks')
-  .insert(tasks)
+      const { error: insertTasksError } = await supabase
+        .from('tasks')
+        .insert(tasks)
 
-if (insertTasksError) {
-  console.error('Tasks insertion error:', insertTasksError)
-  // Clean up offboarding if tasks fail
-  await supabase.from('offboardings').delete().eq('id', offboarding.id)
-  throw new Error('Failed to create tasks')
-}
+      if (insertTasksError) {
+        console.error('Tasks insertion error:', insertTasksError)
+        // Clean up offboarding if tasks fail
+        await supabase.from('offboardings').delete().eq('id', offboarding.id)
+        throw new Error('Failed to create tasks')
+      }
 
-// Send email notifications to departments
-try {
-  // Get unique departments from tasks
-  const departments = [...new Set(templateTasks.map(t => t.assigned_department).filter(Boolean))]
-  
-  // Get current user name and organization
-  const { data: currentUser } = await supabase
-    .from('users')
-    .select('name, email, organization_id')
-    .eq('id', user.id)
-    .single()
+      // Send email notifications to departments
+      try {
+        // Get unique departments from tasks
+        const departments = [...new Set(templateTasks.map(t => t.assigned_department).filter(Boolean))]
+        
+        // Get current user name and organization
+        const { data: currentUser } = await supabase
+          .from('users')
+          .select('name, email, organization_id')
+          .eq('id', user.id)
+          .single()
 
-  // Use organization_id from currentUser query or from earlier userData
-  const orgId = currentUser?.organization_id || userData?.organization_id
+        if (currentUser?.organization_id) {
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'offboarding_created',
+              departments,
+              employeeName: formData.employee_name,
+              employeeDepartment: formData.department,
+              lastWorkingDay: formData.last_working_day,
+              taskCount: tasks.length,
+              createdBy: currentUser?.name || currentUser?.email || 'Admin',
+              offboardingId: offboarding.id,
+              managerEmail: formData.manager_email || undefined,
+              organizationId: currentUser.organization_id,
+            }),
+          })
+          
+          console.log('Offboarding created emails sent')
+        } else {
+          console.warn('No organization ID found, skipping email notification')
+        }
+      } catch (emailError) {
+        console.error('Failed to send offboarding created emails:', emailError)
+        // Don't fail the offboarding creation if emails fail
+      }
 
-  if (orgId) {
-    await fetch('/api/send-email', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        type: 'offboarding_created',
-        departments,
-        employeeName: formData.employee_name,
-        employeeDepartment: formData.department,
-        lastWorkingDay: formData.last_working_day,
-        taskCount: tasks.length,
-        createdBy: currentUser?.name || currentUser?.email || 'Admin',
-        offboardingId: offboarding.id,
-        managerEmail: formData.manager_email || undefined,
-        organizationId: orgId,
-      }),
-    })
-    
-    console.log('Offboarding created emails sent')
-  } else {
-    console.warn('No organization ID found, skipping email notification')
-  }
-} catch (emailError) {
-  console.error('Failed to send offboarding created emails:', emailError)
-  // Don't fail the offboarding creation if emails fail
-}
+      toast({
+        title: 'Success!',
+        description: `Offboarding process started for ${formData.employee_name}`,
+      })
 
-toast({
-  title: 'Success!',
-  description: `Offboarding process started for ${formData.employee_name}`,
-})
-
-router.push(`/dashboard/offboardings/${offboarding.id}`)
-      
+      router.push(`/dashboard/offboardings/${offboarding.id}`)
     } catch (error: any) {
       console.error('Submit error:', error)
       toast({
@@ -484,4 +455,4 @@ router.push(`/dashboard/offboardings/${offboarding.id}`)
       </Card>
     </div>
   )
-}
+        }
