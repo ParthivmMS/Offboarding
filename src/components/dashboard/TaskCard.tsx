@@ -60,30 +60,114 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
       throw error
     }
 
-    // Send email notification
+    // Get offboarding details for email
+    const { data: offboardingData } = await supabase
+      .from('offboardings')
+      .select('*, tasks(id, completed)')
+      .eq('id', task.offboarding_id)
+      .single()
+
+    // Send task completed email to manager and creator
     try {
-      await fetch('/api/send-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'task_completed',
-          to: task.offboardings?.manager_email || userData?.email || 'admin@company.com',
-          taskName: task.task_name,
-          employeeName: task.offboardings?.employee_name || 'Employee',
-          completedBy: userData?.name || userData?.email || 'User',
-          notes: notes.trim(),
-          offboardingId: task.offboarding_id,
-        }),
-      })
+      const recipients = []
+      if (offboardingData?.manager_email) {
+        recipients.push(offboardingData.manager_email)
+      }
+      
+      // Also send to the person who created the offboarding
+      const { data: creator } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', offboardingData?.created_by)
+        .single()
+      
+      if (creator?.email && !recipients.includes(creator.email)) {
+        recipients.push(creator.email)
+      }
+
+      if (recipients.length > 0) {
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'task_completed',
+            to: recipients,
+            taskName: task.task_name,
+            employeeName: offboardingData?.employee_name || 'Employee',
+            completedBy: userData?.name || userData?.email || 'User',
+            notes: notes.trim(),
+            offboardingId: task.offboarding_id,
+          }),
+        })
+      }
     } catch (emailError) {
-      console.error('Failed to send email notification:', emailError)
+      console.error('Failed to send task completed email:', emailError)
       // Don't fail the task completion if email fails
     }
 
-    toast({
-      title: 'Task completed!',
-      description: 'The task has been marked as complete.',
-    })
+    // Check if all tasks are now completed
+    if (offboardingData) {
+      const allTasksCompleted = offboardingData.tasks.every((t: any) => 
+        t.id === task.id ? true : t.completed
+      )
+
+      if (allTasksCompleted) {
+        // Update offboarding status to completed
+        await supabase
+          .from('offboardings')
+          .update({ status: 'completed' })
+          .eq('id', task.offboarding_id)
+
+        // Send offboarding completed email
+        try {
+          const recipients = []
+          if (offboardingData.manager_email) recipients.push(offboardingData.manager_email)
+          
+          // Add HR and creator
+          const { data: creator } = await supabase
+            .from('users')
+            .select('email')
+            .eq('id', offboardingData.created_by)
+            .single()
+          
+          if (creator?.email && !recipients.includes(creator.email)) {
+            recipients.push(creator.email)
+          }
+
+          // Add HR department email
+          const hrEmail = 'hr@company.com' // From DEPARTMENT_EMAILS
+          if (!recipients.includes(hrEmail)) {
+            recipients.push(hrEmail)
+          }
+
+          await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'offboarding_completed',
+              to: recipients,
+              employeeName: offboardingData.employee_name,
+              department: offboardingData.department,
+              completionDate: new Date().toISOString(),
+              offboardingId: task.offboarding_id,
+              totalTasks: offboardingData.tasks.length,
+            }),
+          })
+        } catch (emailError) {
+          console.error('Failed to send offboarding completed email:', emailError)
+        }
+
+        toast({
+          title: '🎉 Offboarding Completed!',
+          description: `All tasks completed for ${offboardingData.employee_name}`,
+        })
+      } else {
+        toast({
+          title: 'Task completed!',
+          description: 'The task has been marked as complete.',
+        })
+      }
+    }
 
     // Refresh the parent component
     if (onUpdate) {
@@ -99,7 +183,7 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
   } finally {
     setLoading(false)
   }
-  }
+}
 
   const priorityColors: Record<string, string> = {
     High: 'bg-red-100 text-red-700 border-red-200',
