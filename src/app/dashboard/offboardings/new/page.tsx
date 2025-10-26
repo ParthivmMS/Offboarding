@@ -236,8 +236,7 @@ export default function NewOffboardingPage() {
       })
 
       console.log('Creating tasks:', tasks.length)
-
-      const { error: insertTasksError } = await supabase
+const { error: insertTasksError } = await supabase
   .from('tasks')
   .insert(tasks)
 
@@ -253,31 +252,38 @@ try {
   // Get unique departments from tasks
   const departments = [...new Set(templateTasks.map(t => t.assigned_department).filter(Boolean))]
   
-  // Get current user name
+  // Get current user name and organization
   const { data: currentUser } = await supabase
     .from('users')
-    .select('name, email')
+    .select('name, email, organization_id')
     .eq('id', user.id)
     .single()
 
-  await fetch('/api/send-email', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    type: 'offboarding_created',
-    departments,
-    employeeName: formData.employee_name,
-    employeeDepartment: formData.department,
-    lastWorkingDay: formData.last_working_day,
-    taskCount: tasks.length,
-    createdBy: currentUser?.name || currentUser?.email || 'Admin',
-    offboardingId: offboarding.id,
-    managerEmail: formData.manager_email || undefined,
-    organizationId: userData.organization_id, // ← ADD THIS
-  }),
-})
-  
-  console.log('Offboarding created emails sent')
+  // Use organization_id from currentUser query or from earlier userData
+  const orgId = currentUser?.organization_id || userData?.organization_id
+
+  if (orgId) {
+    await fetch('/api/send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        type: 'offboarding_created',
+        departments,
+        employeeName: formData.employee_name,
+        employeeDepartment: formData.department,
+        lastWorkingDay: formData.last_working_day,
+        taskCount: tasks.length,
+        createdBy: currentUser?.name || currentUser?.email || 'Admin',
+        offboardingId: offboarding.id,
+        managerEmail: formData.manager_email || undefined,
+        organizationId: orgId,
+      }),
+    })
+    
+    console.log('Offboarding created emails sent')
+  } else {
+    console.warn('No organization ID found, skipping email notification')
+  }
 } catch (emailError) {
   console.error('Failed to send offboarding created emails:', emailError)
   // Don't fail the offboarding creation if emails fail
@@ -289,6 +295,7 @@ toast({
 })
 
 router.push(`/dashboard/offboardings/${offboarding.id}`)
+      
     } catch (error: any) {
       console.error('Submit error:', error)
       toast({
