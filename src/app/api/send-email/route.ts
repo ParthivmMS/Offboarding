@@ -4,7 +4,8 @@ import {
   sendTaskCompletedEmail, 
   sendOffboardingCompletedEmail,
   sendTaskDueReminderEmail,
-  sendOffboardingCreatedEmail
+  sendOffboardingCreatedEmail,
+  sendTeamInvitationEmail
 } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
@@ -29,6 +30,9 @@ export async function POST(request: NextRequest) {
         break
       case 'task_due_reminder':
         result = await sendTaskDueReminderEmail(params)
+        break
+      case 'team_invitation':
+        result = await sendTeamInvitationEmail(params)
         break
       default:
         return NextResponse.json(
