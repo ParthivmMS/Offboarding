@@ -5,20 +5,11 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { Users, CheckCircle, Clock, AlertCircle, Menu, Bell, Settings, User, LogOut } from 'lucide-react'
+import { Users, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 
 export default function DashboardPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [stats, setStats] = useState({
     activeOffboardings: 0,
     completedLast30Days: 0,
@@ -40,8 +31,6 @@ export default function DashboardPage() {
         router.push('/login')
         return
       }
-      
-      setUser(user)
 
       // Get user's organization
       const { data: userData } = await supabase
@@ -66,15 +55,15 @@ export default function DashboardPage() {
         .eq('status', 'in_progress')
 
       // Get completed offboardings in last 30 days
-const thirtyDaysAgo = new Date()
-thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-const { count: completedCount } = await supabase
-  .from('offboardings')
-  .select('*', { count: 'exact', head: true })
-  .eq('organization_id', orgId)
-  .eq('status', 'completed')
-  .gte('created_at', thirtyDaysAgo.toISOString())
+      const { count: completedCount } = await supabase
+        .from('offboardings')
+        .select('*', { count: 'exact', head: true })
+        .eq('organization_id', orgId)
+        .eq('status', 'completed')
+        .gte('created_at', thirtyDaysAgo.toISOString())
 
       // Get all tasks for the organization
       const { data: allTasks } = await supabase
@@ -115,12 +104,6 @@ const { count: completedCount } = await supabase
     }
   }
 
-  async function handleLogout() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
-    window.location.href = '/login'
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -134,163 +117,7 @@ const { count: completedCount } = await supabase
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            {/* Left: Logo + Desktop Nav */}
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <Users className="w-5 h-5 text-white" />
-                </div>
-                <span className="font-bold text-xl">OffboardPro</span>
-              </div>
-              
-              {/* Desktop Navigation */}
-              <nav className="hidden md:flex items-center gap-1">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => router.push('/dashboard')}
-                  className="font-medium"
-                >
-                  Dashboard
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => router.push('/dashboard/offboardings')}
-                >
-                  Offboardings
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => router.push('/dashboard/tasks')}
-                >
-                  My Tasks
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={() => router.push('/dashboard/templates')}
-                >
-                  Templates
-                </Button>
-              </nav>
-            </div>
-            
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2">
-              {/* Mobile Menu Button */}
-              <Button 
-                variant="ghost" 
-                size="icon"
-                className="md:hidden"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
-              
-              {/* Notifications Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="w-5 h-5" />
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center">
-                      3
-                    </span>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80">
-                  <div className="px-4 py-2 border-b">
-                    <p className="font-semibold">Notifications</p>
-                  </div>
-                  <DropdownMenuItem className="flex flex-col items-start py-3">
-                    <p className="font-medium text-sm">Sample Notification</p>
-                    <p className="text-xs text-slate-500 mt-1">This is a placeholder notification</p>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              {/* Profile Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
-                      {user?.email?.charAt(0).toUpperCase()}
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
-                  <div className="px-2 py-1.5">
-                    <p className="text-sm font-medium">{user?.user_metadata?.name || 'User'}</p>
-                    <p className="text-xs text-slate-500">{user?.email}</p>
-                  </div>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
-                    <User className="w-4 h-4 mr-2" />
-                    Profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push('/dashboard/settings')}>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-          
-          {/* Mobile Menu */}
-          {mobileMenuOpen && (
-            <div className="md:hidden mt-4 pt-4 border-t space-y-2">
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={() => { router.push('/dashboard'); setMobileMenuOpen(false); }}
-              >
-                Dashboard
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={() => { router.push('/dashboard/offboardings'); setMobileMenuOpen(false); }}
-              >
-                Offboardings
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={() => { router.push('/dashboard/tasks'); setMobileMenuOpen(false); }}
-              >
-                My Tasks
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={() => { router.push('/dashboard/templates'); setMobileMenuOpen(false); }}
-              >
-                Templates
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full justify-start" 
-                onClick={() => { router.push('/dashboard/settings'); setMobileMenuOpen(false); }}
-              >
-                Settings
-              </Button>
-            </div>
-          )}
-        </div>
-      </header>
-
-      {/* Main Content */}
+      {/* Main Content - NO HEADER HERE! Layout provides it */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
