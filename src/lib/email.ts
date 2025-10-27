@@ -91,6 +91,14 @@ interface SendOffboardingCompletedEmailParams {
   totalTasks: number
 }
 
+interface TeamInvitationEmailParams {
+  to: string[]
+  inviterName: string
+  organizationName: string
+  role: string
+  inviteLink: string
+}
+
 export async function sendOffboardingCreatedEmail({
   departments,
   employeeName,
@@ -436,6 +444,90 @@ export async function sendTaskDueReminderEmail({
     return { success: true }
   } catch (error) {
     console.error('Failed to send task due reminder email:', error)
+    return { success: false, error }
+  }
+}
+
+export async function sendTeamInvitationEmail({
+  to,
+  inviterName,
+  organizationName,
+  role,
+  inviteLink,
+}: TeamInvitationEmailParams) {
+  try {
+    if (to.length === 0) {
+      console.warn('No recipients for team invitation email')
+      return { success: false, error: 'No recipients' }
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: 'OffboardPro <onboarding@resend.dev>',
+      to,
+      subject: `You've been invited to join ${organizationName} on OffboardPro`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }
+            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+            .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: 600; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+            .role-badge { display: inline-block; background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 600; }
+            .info-box { background: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #2563eb; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin: 0; font-size: 28px;">🎉 You're Invited!</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px;"><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on OffboardPro.</p>
+              
+              <p>You've been assigned the role: <span class="role-badge">${role}</span></p>
+              
+              <div class="info-box">
+                <p style="margin: 0; color: #1e40af;">
+                  <strong>📋 What is OffboardPro?</strong><br>
+                  OffboardPro helps teams manage employee offboarding efficiently and securely. Track tasks, ensure compliance, and streamline the entire process.
+                </p>
+              </div>
+              
+              <p>Click the button below to accept your invitation and create your account:</p>
+              
+              <div style="text-align: center;">
+                <a href="${inviteLink}" class="button">Accept Invitation</a>
+              </div>
+              
+              <p style="color: #666; font-size: 14px; margin-top: 30px;">
+                <strong>⏰ This invitation expires in 7 days.</strong><br>
+                If you didn't expect this invitation, you can safely ignore this email.
+              </p>
+              
+              <p style="margin-top: 30px; font-size: 15px;">Looking forward to having you on the team!<br><strong>The OffboardPro Team</strong></p>
+            </div>
+            <div class="footer">
+              <p>© 2024 OffboardPro. All rights reserved.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    })
+
+    if (error) {
+      console.error('Error sending team invitation email:', error)
+      return { success: false, error }
+    }
+
+    console.log('Team invitation email sent successfully:', data)
+    return { success: true, data }
+  } catch (error) {
+    console.error('Error sending team invitation email:', error)
     return { success: false, error }
   }
 }
