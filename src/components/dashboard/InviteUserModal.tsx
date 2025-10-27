@@ -74,19 +74,24 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         return
       }
 
-      // Check if user already exists in organization
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email.toLowerCase())
-        .eq('organization_id', userData.organization_id)
-        .maybeSingle()
+      // Check if there's already a pending invitation
+const { data: existingInvite } = await supabase
+  .from('invitations')
+  .select('id')
+  .eq('email', email.toLowerCase())
+  .eq('organization_id', userData.organization_id)
+  .eq('status', 'pending')
+  .maybeSingle()
 
-      if (existingUser) {
-        setError('This user is already a member of your organization')
-        setLoading(false)
-        return
-      }
+// If invitation exists, delete it and send a new one
+if (existingInvite) {
+  await supabase
+    .from('invitations')
+    .delete()
+    .eq('id', existingInvite.id)
+  
+  console.log('Deleted old invitation, sending new one')
+}
 
       // Check if there's already a pending invitation
       const { data: existingInvite } = await supabase
