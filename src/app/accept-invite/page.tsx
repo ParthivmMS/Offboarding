@@ -91,17 +91,32 @@ function AcceptInviteContent() {
     setSubmitting(true)
 
     try {
-      // Create auth user
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: invitation.email,
-        password,
-      })
+      // Check if auth user already exists
+const { data: existingAuthUser } = await supabase.auth.signInWithPassword({
+  email: invitation.email,
+  password: 'dummy-password-to-check-existence',
+})
 
-      if (signUpError) throw signUpError
+let authUserId: string
 
-      if (!authData.user) {
-        throw new Error('Failed to create user account')
-      }
+// If user exists in auth, use existing ID
+if (existingAuthUser?.user) {
+  authUserId = existingAuthUser.user.id
+} else {
+  // Create new auth user
+  const { data: authData, error: signUpError } = await supabase.auth.signUp({
+    email: invitation.email,
+    password,
+  })
+
+  if (signUpError) throw signUpError
+
+  if (!authData.user) {
+    throw new Error('Failed to create user account')
+  }
+
+  authUserId = authData.user.id
+}
 
       // Create user record in database
       const { error: userError } = await supabase
