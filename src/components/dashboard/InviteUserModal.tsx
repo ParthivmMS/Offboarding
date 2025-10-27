@@ -74,26 +74,21 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         return
       }
 
-      // Check if there's already a pending invitation
-const { data: existingInvite } = await supabase
-  .from('invitations')
-  .select('id')
-  .eq('email', email.toLowerCase())
-  .eq('organization_id', userData.organization_id)
-  .eq('status', 'pending')
-  .maybeSingle()
+      // Check if user already exists in organization
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email.toLowerCase())
+        .eq('organization_id', userData.organization_id)
+        .maybeSingle()
 
-// If invitation exists, delete it and send a new one
-if (existingInvite) {
-  await supabase
-    .from('invitations')
-    .delete()
-    .eq('id', existingInvite.id)
-  
-  console.log('Deleted old invitation, sending new one')
-}
+      if (existingUser) {
+        setError('This user is already a member of your organization')
+        setLoading(false)
+        return
+      }
 
-      // Check if there's already a pending invitation
+      // Check if there's already a pending invitation - if yes, delete it
       const { data: existingInvite } = await supabase
         .from('invitations')
         .select('id')
@@ -102,10 +97,14 @@ if (existingInvite) {
         .eq('status', 'pending')
         .maybeSingle()
 
+      // If invitation exists, delete it and send a new one
       if (existingInvite) {
-        setError('An invitation has already been sent to this email')
-        setLoading(false)
-        return
+        await supabase
+          .from('invitations')
+          .delete()
+          .eq('id', existingInvite.id)
+        
+        console.log('Deleted old invitation, sending new one')
       }
 
       // Generate secure token
@@ -135,9 +134,9 @@ if (existingInvite) {
         .maybeSingle()
 
       // Get app URL with fallback
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
-               (typeof window !== 'undefined' ? window.location.origin : 'https://offboarding.vercel.app')
-const inviteLink = `${appUrl}/accept-invite?token=${token}`
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                     (typeof window !== 'undefined' ? window.location.origin : 'https://offboarding.vercel.app')
+      const inviteLink = `${appUrl}/accept-invite?token=${token}`
       
       await fetch('/api/send-email', {
         method: 'POST',
