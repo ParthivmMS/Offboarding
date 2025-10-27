@@ -122,7 +122,7 @@ if (existingAuthUser?.user) {
       const { error: userError } = await supabase
         .from('users')
         .insert({
-          id: authData.user.id,
+          id: authUserId,
           email: invitation.email,
           name: name.trim(),
           role: invitation.role,
