@@ -5,8 +5,9 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Mail, User, Shield } from 'lucide-react'
+import { Plus, Mail, User } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import InviteUserModal from '@/components/dashboard/InviteUserModal'
 
 interface TeamMember {
   id: string
@@ -94,15 +95,15 @@ export default function TeamPage() {
   function getRoleBadgeColor(role: string) {
     switch (role) {
       case 'admin':
-        return 'bg-purple-500'
+        return 'bg-purple-500 text-white'
       case 'hr_manager':
-        return 'bg-blue-500'
+        return 'bg-blue-500 text-white'
       case 'it_manager':
-        return 'bg-green-500'
+        return 'bg-green-500 text-white'
       case 'manager':
-        return 'bg-orange-500'
+        return 'bg-orange-500 text-white'
       default:
-        return 'bg-gray-500'
+        return 'bg-gray-500 text-white'
     }
   }
 
@@ -255,8 +256,3 @@ export default function TeamPage() {
     </div>
   )
 }
-
-// Placeholder for invite modal (we'll create this in Step 3)
-function InviteUserModal({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
-  return <div>Modal placeholder - creating in Step 3</div>
-      }
