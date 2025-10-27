@@ -49,7 +49,7 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile menu button - FIXED: Added pt-16 to avoid overlap */}
+      {/* SINGLE Mobile Header - Only shown on mobile */}
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm">
         <Link href="/dashboard" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -61,32 +61,34 @@ export default function DashboardLayout({
           variant="ghost"
           size="icon"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="hover:bg-gray-100"
         >
           {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </Button>
       </div>
 
-      {/* Sidebar */}
+      {/* Sidebar - Hidden on mobile unless menu open */}
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-screen w-64 bg-white border-r transition-transform duration-300
+          fixed top-0 left-0 z-40 h-screen w-64 bg-white border-r transition-transform duration-300 shadow-lg lg:shadow-none
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
         `}
       >
         <div className="flex flex-col h-full">
-          {/* Logo - Desktop only */}
-          <div className="p-6 border-b hidden lg:block">
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                <Users className="w-6 h-6 text-white" />
-              </div>
-              <span className="font-bold text-xl">OffboardPro</span>
-            </Link>
+          {/* Logo - Desktop Only */}
+          <div className="p-6 border-b hidden lg:flex items-center gap-2">
+            <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <span className="font-bold text-xl">OffboardPro</span>
           </div>
 
+          {/* Mobile: Add padding to push menu below mobile header */}
+          <div className="lg:hidden h-16"></div>
+
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1 mt-16 lg:mt-0">
+          <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const Icon = item.icon
               return (
@@ -132,9 +134,11 @@ export default function DashboardLayout({
         />
       )}
 
-      {/* Main content - FIXED: Added pt-16 for mobile */}
+      {/* Main content */}
       <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
-        {children}
+        <div className="w-full">
+          {children}
+        </div>
       </main>
     </div>
   )
