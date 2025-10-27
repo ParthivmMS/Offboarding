@@ -49,14 +49,14 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      {/* Mobile menu button - FIXED: Added pt-16 to avoid overlap */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-3 flex items-center justify-between shadow-sm">
+        <Link href="/dashboard" className="flex items-center gap-2">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
             <Users className="w-5 h-5 text-white" />
           </div>
           <span className="font-bold text-lg">OffboardPro</span>
-        </div>
+        </Link>
         <Button
           variant="ghost"
           size="icon"
@@ -75,18 +75,18 @@ export default function DashboardLayout({
         `}
       >
         <div className="flex flex-col h-full">
-          {/* Logo */}
-          <div className="p-6 border-b">
-            <div className="flex items-center gap-2">
+          {/* Logo - Desktop only */}
+          <div className="p-6 border-b hidden lg:block">
+            <Link href="/dashboard" className="flex items-center gap-2">
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <Users className="w-6 h-6 text-white" />
               </div>
               <span className="font-bold text-xl">OffboardPro</span>
-            </div>
+            </Link>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 p-4 space-y-1">
+          <nav className="flex-1 p-4 space-y-1 mt-16 lg:mt-0">
             {navigation.map((item) => {
               const Icon = item.icon
               return (
@@ -132,8 +132,8 @@ export default function DashboardLayout({
         />
       )}
 
-      {/* Main content */}
-      <main className="lg:ml-64 pt-16 lg:pt-0">
+      {/* Main content - FIXED: Added pt-16 for mobile */}
+      <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">
         {children}
       </main>
     </div>
