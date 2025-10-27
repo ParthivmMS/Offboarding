@@ -129,8 +129,10 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         .eq('id', userData.organization_id)
         .maybeSingle()
 
-      // Send invitation email
-      const inviteLink = `${process.env.NEXT_PUBLIC_APP_URL}/accept-invite?token=${token}`
+      // Get app URL with fallback
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+               (typeof window !== 'undefined' ? window.location.origin : 'https://offboarding.vercel.app')
+const inviteLink = `${appUrl}/accept-invite?token=${token}`
       
       await fetch('/api/send-email', {
         method: 'POST',
