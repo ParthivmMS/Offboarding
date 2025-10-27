@@ -83,26 +83,25 @@ export default function SignUpPage() {
 
       if (orgError) {
         console.error('Org creation error:', orgError)
-        // Continue anyway, we can fix this later
+        throw new Error('Failed to create organization')
       }
 
       // Create user in our users table
-      if (org) {
-        const { error: userError } = await supabase
-          .from('users')
-          .insert({
-            id: authData.user.id,
-            email: formData.email,
-            name: formData.name,
-            password_hash: 'supabase_auth', // Placeholder since we use Supabase Auth
-            organization_id: org.id,
-            role: 'admin',
-          })
+      const { error: userError } = await supabase
+        .from('users')
+        .insert({
+          id: authData.user.id,
+          email: formData.email,
+          name: formData.name,
+          password_hash: 'supabase_auth', // Placeholder since we use Supabase Auth
+          organization_id: org.id,
+          role: 'admin', // First user is admin
+          is_active: true,
+        })
 
-        if (userError) {
-          console.error('User creation error:', userError)
-          // Continue anyway
-        }
+      if (userError) {
+        console.error('User creation error:', userError)
+        throw new Error('Failed to create user profile')
       }
 
       toast({
