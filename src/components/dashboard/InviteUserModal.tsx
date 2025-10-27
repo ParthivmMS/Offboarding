@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { X, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 
 interface InviteUserModalProps {
   onClose: () => void
