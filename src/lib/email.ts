@@ -1,8 +1,7 @@
 import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/client'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
+import { sendEmail as sendBrevoEmail } from './email-brevo'
 // Fallback department emails (used if database lookup fails)
 const FALLBACK_DEPARTMENT_EMAILS: Record<string, string> = {
   'IT': 'it@company.com',
