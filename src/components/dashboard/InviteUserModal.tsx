@@ -138,7 +138,10 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
                      (typeof window !== 'undefined' ? window.location.origin : 'https://offboarding.vercel.app')
       const inviteLink = `${appUrl}/accept-invite?token=${token}`
       
-      await fetch('/api/send-email', {
+      // Send invitation email
+      console.log('📧 Sending invitation email to:', email)
+      
+      const emailResponse = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -150,6 +153,15 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
           inviteLink,
         }),
       })
+
+      const emailResult = await emailResponse.json()
+      console.log('📬 Email result:', emailResult)
+
+      if (!emailResponse.ok) {
+        console.error('❌ Email sending failed:', emailResult)
+      } else {
+        console.log('✅ Email sent successfully!')
+      }
 
       onSuccess()
     } catch (error) {
