@@ -1,7 +1,6 @@
-import { Resend } from 'resend'
 import { createClient } from '@/lib/supabase/client'
+import { sendBrevoEmail } from './email-brevo'
 
-import { sendEmail as sendBrevoEmail } from './email-brevo'
 // Fallback department emails (used if database lookup fails)
 const FALLBACK_DEPARTMENT_EMAILS: Record<string, string> = {
   'IT': 'it@company.com',
@@ -130,11 +129,10 @@ export async function sendOffboardingCreatedEmail({
       return { success: false, error: 'No valid recipients' }
     }
 
-    await resend.emails.send({
-      from: 'OffboardPro <onboarding@resend.dev>',
+    const result = await sendBrevoEmail({
       to: recipients,
       subject: `New Offboarding: ${employeeName}`,
-      html: `
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563eb;">🚀 New Offboarding Started</h2>
           
@@ -174,7 +172,7 @@ export async function sendOffboardingCreatedEmail({
     })
     
     console.log('Offboarding created email sent to:', recipients)
-    return { success: true }
+    return result
   } catch (error) {
     console.error('Failed to send offboarding created email:', error)
     return { success: false, error }
@@ -199,11 +197,10 @@ export async function sendTaskAssignedEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    await resend.emails.send({
-      from: 'OffboardPro <onboarding@resend.dev>',
+    const result = await sendBrevoEmail({
       to,
       subject: `New Task Assigned: ${taskName}`,
-      html: `
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #2563eb;">📋 New Task Assigned</h2>
           
@@ -242,7 +239,7 @@ export async function sendTaskAssignedEmail({
     })
     
     console.log('Task assigned email sent to:', to)
-    return { success: true }
+    return result
   } catch (error) {
     console.error('Failed to send task assigned email:', error)
     return { success: false, error }
@@ -265,11 +262,10 @@ export async function sendTaskCompletedEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    await resend.emails.send({
-      from: 'OffboardPro <onboarding@resend.dev>',
+    const result = await sendBrevoEmail({
       to,
       subject: `✓ Task Completed: ${taskName}`,
-      html: `
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #16a34a;">✓ Task Completed</h2>
           
@@ -308,7 +304,7 @@ export async function sendTaskCompletedEmail({
     })
     
     console.log('Task completed email sent to:', to)
-    return { success: true }
+    return result
   } catch (error) {
     console.error('Failed to send task completed email:', error)
     return { success: false, error }
@@ -331,11 +327,10 @@ export async function sendOffboardingCompletedEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    await resend.emails.send({
-      from: 'OffboardPro <onboarding@resend.dev>',
+    const result = await sendBrevoEmail({
       to,
       subject: `🎉 Offboarding Completed: ${employeeName}`,
-      html: `
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #16a34a;">🎉 Offboarding Successfully Completed</h2>
           
@@ -376,7 +371,7 @@ export async function sendOffboardingCompletedEmail({
     })
     
     console.log('Offboarding completed email sent to:', to)
-    return { success: true }
+    return result
   } catch (error) {
     console.error('Failed to send offboarding completed email:', error)
     return { success: false, error }
@@ -399,11 +394,10 @@ export async function sendTaskDueReminderEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    await resend.emails.send({
-      from: 'OffboardPro <onboarding@resend.dev>',
+    const result = await sendBrevoEmail({
       to,
       subject: `⚠️ Reminder: Task Due ${daysUntilDue === 1 ? 'Tomorrow' : `in ${daysUntilDue} days`}`,
-      html: `
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #dc2626;">⚠️ Task Due Soon</h2>
           
@@ -440,7 +434,7 @@ export async function sendTaskDueReminderEmail({
     })
     
     console.log('Task due reminder email sent to:', to)
-    return { success: true }
+    return result
   } catch (error) {
     console.error('Failed to send task due reminder email:', error)
     return { success: false, error }
@@ -460,11 +454,10 @@ export async function sendTeamInvitationEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    const { data, error } = await resend.emails.send({
-      from: 'OffboardPro <onboarding@resend.dev>',
+    const result = await sendBrevoEmail({
       to,
       subject: `You've been invited to join ${organizationName} on OffboardPro`,
-      html: `
+      htmlContent: `
         <!DOCTYPE html>
         <html>
         <head>
@@ -518,13 +511,13 @@ export async function sendTeamInvitationEmail({
       `,
     })
 
-    if (error) {
-      console.error('Error sending team invitation email:', error)
-      return { success: false, error }
+    if (!result.success) {
+      console.error('Error sending team invitation email:', result.error)
+      return result
     }
 
-    console.log('Team invitation email sent successfully:', data)
-    return { success: true, data }
+    console.log('✅ Team invitation email sent successfully')
+    return result
   } catch (error) {
     console.error('Error sending team invitation email:', error)
     return { success: false, error }
