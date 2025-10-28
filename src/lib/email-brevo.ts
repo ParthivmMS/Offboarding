@@ -1,5 +1,3 @@
-const SibApiV3Sdk = require('sib-api-v3-sdk')
-
 interface SendEmailParams {
   to: string[]
   subject: string
@@ -20,28 +18,39 @@ export async function sendBrevoEmail({
       throw new Error('BREVO_API_KEY is not configured')
     }
 
-    // Initialize API client
-    const defaultClient = SibApiV3Sdk.ApiClient.instance
-    const apiKey = defaultClient.authentications['api-key']
-    apiKey.apiKey = process.env.BREVO_API_KEY
+    // Prepare email data for Brevo API
+    const emailData = {
+      sender: {
+        name: senderName,
+        email: senderEmail,
+      },
+      to: to.map(email => ({ email })),
+      subject: subject,
+      htmlContent: htmlContent,
+    }
 
-    // Create API instance
-    const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
+    // Send via Brevo REST API
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+      },
+      body: JSON.stringify(emailData),
+    })
 
-    // Prepare email data
-    const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail()
-    sendSmtpEmail.subject = subject
-    sendSmtpEmail.htmlContent = htmlContent
-    sendSmtpEmail.sender = { name: senderName, email: senderEmail }
-    sendSmtpEmail.to = to.map(email => ({ email }))
+    if (!response.ok) {
+      const errorData = await response.json()
+      throw new Error(`Brevo API error: ${JSON.stringify(errorData)}`)
+    }
 
-    // Send email
-    const result = await apiInstance.sendTransacEmail(sendSmtpEmail)
+    const result = await response.json()
     
     console.log('✅ Brevo email sent successfully:', result.messageId)
     return { success: true, data: result }
   } catch (error: any) {
     console.error('❌ Error sending Brevo email:', error)
-    return { success: false, error }
+    return { success: false, error: error.message }
   }
 }
