@@ -11,7 +11,7 @@ export async function sendBrevoEmail({
   subject,
   htmlContent,
   senderName = 'OffboardPro',
-  senderEmail = 'notifications@offboardpro.com',
+  senderEmail = 'parthivmssince2005@gmail.com',
 }: SendEmailParams) {
   try {
     if (!process.env.BREVO_API_KEY) {
