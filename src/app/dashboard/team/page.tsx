@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Mail, User } from 'lucide-react'
+import { Plus, Mail, User, LogOut, Shield, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import InviteUserModal from '@/components/dashboard/InviteUserModal'
 
@@ -32,6 +32,7 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [currentUser, setCurrentUser] = useState<any>(null)
   const [currentUserRole, setCurrentUserRole] = useState<string>('')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const router = useRouter()
@@ -52,7 +53,7 @@ export default function TeamPage() {
       // Get current user's data
       const { data: userData } = await supabase
         .from('users')
-        .select('organization_id, role')
+        .select('organization_id, role, name, email')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -61,6 +62,7 @@ export default function TeamPage() {
         return
       }
 
+      setCurrentUser(userData)
       setCurrentUserRole(userData.role)
 
       // Get all team members in organization
@@ -89,6 +91,28 @@ export default function TeamPage() {
       console.error('Error loading team data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  async function cancelInvitation(invitationId: string) {
+    try {
+      const { error } = await supabase
+        .from('invitations')
+        .update({ status: 'cancelled' })
+        .eq('id', invitationId)
+
+      if (error) throw error
+
+      // Refresh data
+      loadTeamData()
+    } catch (error) {
+      console.error('Error cancelling invitation:', error)
+      alert('Failed to cancel invitation')
     }
   }
 
@@ -125,6 +149,21 @@ export default function TeamPage() {
     return ['admin', 'hr_manager'].includes(currentUserRole)
   }
 
+  function getRoleDescription(role: string) {
+    switch (role) {
+      case 'admin':
+        return 'Full access to all features'
+      case 'hr_manager':
+        return 'Can manage offboardings and invite users'
+      case 'it_manager':
+        return 'Can manage IT-related tasks'
+      case 'manager':
+        return 'Can view and manage team offboardings'
+      default:
+        return 'Can view and complete assigned tasks'
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -135,7 +174,7 @@ export default function TeamPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
-      {/* Header */}
+      {/* Header with Logout */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
@@ -143,13 +182,77 @@ export default function TeamPage() {
             Manage your organization's team members and invitations
           </p>
         </div>
-        {canInviteUsers() && (
-          <Button onClick={() => setShowInviteModal(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
-            Invite User
+        <div className="flex items-center gap-3">
+          {canInviteUsers() && (
+            <Button onClick={() => setShowInviteModal(true)} className="gap-2">
+              <Plus className="w-4 h-4" />
+              Invite User
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            onClick={handleLogout}
+            className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
           </Button>
-        )}
+        </div>
       </div>
+
+      {/* Current User Info */}
+      <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
+              <User className="w-8 h-8 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600 mb-1">You are signed in as</p>
+              <p className="font-bold text-lg text-gray-900">{currentUser?.name}</p>
+              <p className="text-sm text-gray-600">{currentUser?.email}</p>
+            </div>
+            <div>
+              <Badge className={`${getRoleBadgeColor(currentUserRole)} px-4 py-2 text-sm`}>
+                {formatRole(currentUserRole)}
+              </Badge>
+              <p className="text-xs text-gray-600 mt-2 text-right">
+                {getRoleDescription(currentUserRole)}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Team Purpose Explanation */}
+      <Card className="mb-6 border-2 border-amber-200 bg-amber-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-amber-900">
+            <Shield className="w-5 h-5" />
+            What are Team Members for?
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ul className="space-y-2 text-sm text-amber-900">
+            <li className="flex items-start gap-2">
+              <span className="text-amber-600 font-bold">•</span>
+              <span><strong>Collaboration:</strong> Multiple people can work on offboarding tasks</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-amber-600 font-bold">•</span>
+              <span><strong>Role-based Access:</strong> Control who can create offboardings vs just complete tasks</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-amber-600 font-bold">•</span>
+              <span><strong>Department Separation:</strong> IT Managers handle IT tasks, HR handles HR tasks</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-amber-600 font-bold">•</span>
+              <span><strong>Visibility:</strong> Everyone in the organization can see progress and status</span>
+            </li>
+          </ul>
+        </CardContent>
+      </Card>
 
       {/* Active Team Members */}
       <Card className="mb-6">
@@ -184,11 +287,13 @@ export default function TeamPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge className={getRoleBadgeColor(member.role)}>
-                      {formatRole(member.role)}
-                    </Badge>
-                    <div className="text-sm text-gray-500">
-                      Joined {formatDate(member.created_at)}
+                    <div className="text-right mr-3">
+                      <Badge className={getRoleBadgeColor(member.role)}>
+                        {formatRole(member.role)}
+                      </Badge>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Joined {formatDate(member.created_at)}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -235,6 +340,14 @@ export default function TeamPage() {
                     <Badge variant="outline" className="text-yellow-600 border-yellow-600">
                       Pending
                     </Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => cancelInvitation(invite.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 </div>
               ))}
