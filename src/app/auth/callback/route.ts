@@ -6,7 +6,8 @@ export async function GET(request: Request) {
   const token = requestUrl.searchParams.get('token')
   const name = requestUrl.searchParams.get('name')
 
-  const supabase = createClient()
+  // ✅ Fix: Await the async client creation
+  const supabase = await createClient()
 
   // Exchange code for session
   const { data: { user } } = await supabase.auth.getUser()
