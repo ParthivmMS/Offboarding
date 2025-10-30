@@ -91,8 +91,8 @@ export default function LoginPage() {
       
       // Get the current URL origin for the redirect
       const redirectTo = typeof window !== 'undefined' 
-        ? `${window.location.origin}/reset-password`
-        : 'https://offboarding.vercel.app/reset-password'
+        ? `${window.location.origin}/auth/callback?type=recovery`
+        : 'https://offboarding.vercel.app/auth/callback?type=recovery'
 
       const { error } = await supabase.auth.resetPasswordForEmail(resetEmail, {
         redirectTo,
