@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { ArrowLeft, Mail, User, Building, Save } from 'lucide-react'
+import { ArrowLeft, Mail, User, Building, Save, LogOut } from 'lucide-react'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -83,6 +83,12 @@ export default function SettingsPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
   }
 
   if (loading) {
@@ -222,21 +228,20 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Danger Zone */}
+        {/* Danger Zone - WITH LOGOUT */}
         <Card className="border-red-200">
           <CardHeader>
             <CardTitle className="text-red-600">Danger Zone</CardTitle>
-            <CardDescription>Irreversible actions</CardDescription>
+            <CardDescription>Sign out of your account</CardDescription>
           </CardHeader>
           <CardContent>
             <Button 
               variant="destructive" 
-              onClick={() => toast({ 
-                title: 'Feature Not Available', 
-                description: 'Account deletion will be available in a future update' 
-              })}
+              onClick={handleLogout}
+              className="gap-2"
             >
-              Delete Account
+              <LogOut className="w-4 h-4" />
+              Logout
             </Button>
           </CardContent>
         </Card>
