@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Mail, User, LogOut, Shield, Trash2 } from 'lucide-react'
+import { Plus, Mail, User, Shield, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import InviteUserModal from '@/components/dashboard/InviteUserModal'
 
@@ -94,11 +94,6 @@ export default function TeamPage() {
     }
   }
 
-  async function handleLogout() {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
-
   async function cancelInvitation(invitationId: string) {
     try {
       const { error } = await supabase
@@ -174,7 +169,7 @@ export default function TeamPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
-      {/* Header with Logout */}
+      {/* Header - WITHOUT Logout Button */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
@@ -182,22 +177,12 @@ export default function TeamPage() {
             Manage your organization's team members and invitations
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          {canInviteUsers() && (
-            <Button onClick={() => setShowInviteModal(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Invite User
-            </Button>
-          )}
-          <Button 
-            variant="outline" 
-            onClick={handleLogout}
-            className="gap-2 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-          >
-            <LogOut className="w-4 h-4" />
-            Logout
+        {canInviteUsers() && (
+          <Button onClick={() => setShowInviteModal(true)} className="gap-2">
+            <Plus className="w-4 h-4" />
+            Invite User
           </Button>
-        </div>
+        )}
       </div>
 
       {/* Current User Info */}
