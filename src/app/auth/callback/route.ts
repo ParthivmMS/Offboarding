@@ -5,13 +5,25 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const token = requestUrl.searchParams.get('token')
   const name = requestUrl.searchParams.get('name')
+  const type = requestUrl.searchParams.get('type')
+  const code = requestUrl.searchParams.get('code')
 
-  // ✅ Fix: Await the async client creation
   const supabase = await createClient()
 
-  // Exchange code for session
+  // Handle OAuth code exchange (for password reset emails)
+  if (code) {
+    await supabase.auth.exchangeCodeForSession(code)
+  }
+
+  // Get current user
   const { data: { user } } = await supabase.auth.getUser()
 
+  // CASE 1: Password Recovery - Redirect to reset password page
+  if (type === 'recovery' && user) {
+    return NextResponse.redirect(`${requestUrl.origin}/reset-password`)
+  }
+
+  // CASE 2: Team Invitation - Process invitation acceptance
   if (user && token) {
     // Get invitation
     const { data: invitation } = await supabase
@@ -46,5 +58,6 @@ export async function GET(request: Request) {
     }
   }
 
+  // Default: Redirect to dashboard
   return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
 }
