@@ -96,18 +96,33 @@ export default function TeamPage() {
 
   async function cancelInvitation(invitationId: string) {
     try {
-      const { error } = await supabase
+      // Try to update status first
+      const { error: updateError } = await supabase
         .from('invitations')
         .update({ status: 'cancelled' })
         .eq('id', invitationId)
 
-      if (error) throw error
+      if (updateError) {
+        console.error('Update failed, trying delete:', updateError)
+        
+        // If update fails, try to delete instead
+        const { error: deleteError } = await supabase
+          .from('invitations')
+          .delete()
+          .eq('id', invitationId)
+
+        if (deleteError) {
+          console.error('Delete also failed:', deleteError)
+          throw deleteError
+        }
+      }
 
       // Refresh data
       loadTeamData()
-    } catch (error) {
+      alert('Invitation cancelled successfully!')
+    } catch (error: any) {
       console.error('Error cancelling invitation:', error)
-      alert('Failed to cancel invitation')
+      alert(`Failed to cancel invitation: ${error.message || 'Unknown error'}`)
     }
   }
 
