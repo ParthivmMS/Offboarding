@@ -149,21 +149,34 @@ export async function createOrganization(name: string): Promise<Organization | n
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
   
-  if (!user) return null
+  if (!user) {
+    console.error('No authenticated user')
+    return null
+  }
 
-  // Create organization
+  console.log('Creating organization:', name, 'for user:', user.id)
+
+  // Step 1: Create organization
   const { data: org, error: orgError } = await supabase
     .from('organizations')
     .insert({ name })
     .select()
     .single()
 
-  if (orgError || !org) {
-    console.error('Error creating organization:', orgError)
+  if (orgError) {
+    console.error('❌ Error creating organization:', orgError)
+    alert(`Database error: ${orgError.message}`)
     return null
   }
 
-  // Add user as admin member
+  if (!org) {
+    console.error('❌ Organization created but no data returned')
+    return null
+  }
+
+  console.log('✅ Organization created:', org.id)
+
+  // Step 2: Add user as admin member
   const { error: memberError } = await supabase
     .from('organization_members')
     .insert({
@@ -174,22 +187,31 @@ export async function createOrganization(name: string): Promise<Organization | n
     })
 
   if (memberError) {
-    console.error('Error adding user to organization:', memberError)
+    console.error('❌ Error adding user to organization:', memberError)
+    alert(`Failed to add member: ${memberError.message}`)
     // Rollback: delete the organization
     await supabase.from('organizations').delete().eq('id', org.id)
     return null
   }
 
-  // Update user's current organization and legacy fields
-  await supabase
+  console.log('✅ User added as admin member')
+
+  // Step 3: Update user's current organization
+  const { error: updateError } = await supabase
     .from('users')
     .update({ 
       current_organization_id: org.id,
-      organization_id: org.id, // Keep legacy field in sync for now
-      role: 'admin' // Keep legacy field in sync for now
+      organization_id: org.id, // Keep legacy field in sync
+      role: 'admin' // Keep legacy field in sync
     })
     .eq('id', user.id)
 
+  if (updateError) {
+    console.error('⚠️ Warning: Could not update user current org:', updateError)
+    // Don't fail - organization is already created
+  }
+
+  console.log('✅ Organization creation complete!')
   return org
 }
 
