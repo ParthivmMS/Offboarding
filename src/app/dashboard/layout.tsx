@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
+import OrganizationSwitcher from '@/components/dashboard/OrganizationSwitcher'
 
 export default function DashboardLayout({
   children,
@@ -86,6 +87,11 @@ export default function DashboardLayout({
 
           {/* Mobile: Add padding to push menu below mobile header */}
           <div className="lg:hidden h-16"></div>
+
+          {/* Organization Switcher */}
+          <div className="p-4 border-b">
+            <OrganizationSwitcher />
+          </div>
 
           {/* Navigation */}
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
