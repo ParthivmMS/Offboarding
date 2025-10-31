@@ -29,13 +29,14 @@ export default function ResetPasswordPage() {
     const supabase = createClient()
     
     // Check if user came from password reset email
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
     
-    if (user) {
-      // Valid reset token
+    // Check if this is a recovery session (not a regular login)
+    if (session && session.user) {
+      // Valid reset token - user can reset password
       setValidToken(true)
     } else {
-      // No valid token
+      // No valid session
       setValidToken(false)
       toast({
         title: 'Invalid or Expired Link',
@@ -223,4 +224,4 @@ export default function ResetPasswordPage() {
       </div>
     </div>
   )
-        }
+}
