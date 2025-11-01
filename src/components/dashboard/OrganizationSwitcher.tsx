@@ -46,11 +46,17 @@ export default function OrganizationSwitcher() {
   }, [])
 
   async function loadOrganizations() {
+    console.log('🔄 OrganizationSwitcher: Loading organizations...')
     setLoading(true)
+    
     const [current, orgs] = await Promise.all([
       getCurrentOrganization(),
       getUserOrganizations()
     ])
+    
+    console.log('📊 Current org:', current.organization)
+    console.log('📋 All orgs:', orgs)
+    console.log('📋 Orgs count:', orgs.length)
     
     setCurrentOrg(current.organization)
     setOrganizations(orgs)
@@ -137,7 +143,17 @@ export default function OrganizationSwitcher() {
           </DropdownMenuLabel>
 
           {organizations.map((membership) => {
+            // Debug: Log each membership
+            console.log('🔍 Rendering membership:', membership)
+            
             const org = membership.organization as Organization
+            
+            // Safety check: Skip if organization is null/undefined
+            if (!org || !org.id) {
+              console.warn('⚠️ Skipping membership - no organization data:', membership)
+              return null
+            }
+            
             const isActive = org.id === currentOrg?.id
             const badge = getRoleBadge(membership.role)
 
