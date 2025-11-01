@@ -5,9 +5,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Mail, User, Shield, Trash2 } from 'lucide-react'
+import { Plus, Mail, User, Shield, Trash2, UserMinus } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import InviteUserModal from '@/components/dashboard/InviteUserModal'
+import { getCurrentOrganization } from '@/lib/workspace'
 
 interface TeamMember {
   id: string
@@ -16,6 +17,7 @@ interface TeamMember {
   role: string
   is_active: boolean
   created_at: string
+  user_id: string
 }
 
 interface Invitation {
@@ -34,6 +36,8 @@ export default function TeamPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [currentUserRole, setCurrentUserRole] = useState<string>('')
+  const [currentOrgId, setCurrentOrgId] = useState<string>('')
+  const [currentOrgName, setCurrentOrgName] = useState<string>('')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -50,37 +54,69 @@ export default function TeamPage() {
         return
       }
 
-      // Get current user's data
-      const { data: userData } = await supabase
-        .from('users')
-        .select('organization_id, role, name, email')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (!userData) {
+      // Get current organization from workspace utility
+      const { organization, role } = await getCurrentOrganization()
+      
+      if (!organization) {
+        console.error('No current organization')
         setLoading(false)
         return
       }
 
-      setCurrentUser(userData)
-      setCurrentUserRole(userData.role)
+      setCurrentOrgId(organization.id)
+      setCurrentOrgName(organization.name)
+      setCurrentUserRole(role || '')
 
-      // Get all team members in organization
-      const { data: members } = await supabase
+      // Get current user data
+      const { data: userData } = await supabase
         .from('users')
-        .select('id, name, email, role, is_active, created_at')
-        .eq('organization_id', userData.organization_id)
-        .order('created_at', { ascending: false })
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()
 
-      if (members) {
-        setTeamMembers(members)
+      setCurrentUser(userData)
+
+      // Get all team members from organization_members
+      const { data: members, error: membersError } = await supabase
+        .from('organization_members')
+        .select(`
+          id,
+          user_id,
+          role,
+          is_active,
+          joined_at,
+          users!inner(
+            id,
+            name,
+            email,
+            created_at
+          )
+        `)
+        .eq('organization_id', organization.id)
+        .eq('is_active', true)
+        .order('joined_at', { ascending: false })
+
+      if (membersError) {
+        console.error('Error fetching members:', membersError)
+      } else if (members) {
+        // Transform the data to match TeamMember interface
+        const transformedMembers = members.map((m: any) => ({
+          id: m.id,
+          user_id: m.user_id,
+          name: m.users.name,
+          email: m.users.email,
+          role: m.role,
+          is_active: m.is_active,
+          created_at: m.users.created_at
+        }))
+        setTeamMembers(transformedMembers)
       }
 
       // Get pending invitations
       const { data: invites } = await supabase
         .from('invitations')
         .select('*')
-        .eq('organization_id', userData.organization_id)
+        .eq('organization_id', organization.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
 
@@ -94,35 +130,46 @@ export default function TeamPage() {
     }
   }
 
-  async function cancelInvitation(invitationId: string) {
+  async function removeMember(memberId: string, memberEmail: string) {
+    if (!confirm(`Are you sure you want to remove ${memberEmail} from the team?`)) {
+      return
+    }
+
     try {
-      // Try to update status first
-      const { error: updateError } = await supabase
+      // Deactivate the membership instead of deleting
+      const { error } = await supabase
+        .from('organization_members')
+        .update({ is_active: false })
+        .eq('id', memberId)
+
+      if (error) throw error
+
+      alert('Member removed successfully')
+      loadTeamData()
+    } catch (error: any) {
+      console.error('Error removing member:', error)
+      alert(`Failed to remove member: ${error.message}`)
+    }
+  }
+
+  async function cancelInvitation(invitationId: string) {
+    if (!confirm('Are you sure you want to cancel this invitation?')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
         .from('invitations')
         .update({ status: 'cancelled' })
         .eq('id', invitationId)
 
-      if (updateError) {
-        console.error('Update failed, trying delete:', updateError)
-        
-        // If update fails, try to delete instead
-        const { error: deleteError } = await supabase
-          .from('invitations')
-          .delete()
-          .eq('id', invitationId)
+      if (error) throw error
 
-        if (deleteError) {
-          console.error('Delete also failed:', deleteError)
-          throw deleteError
-        }
-      }
-
-      // Refresh data
+      alert('Invitation cancelled successfully')
       loadTeamData()
-      alert('Invitation cancelled successfully!')
     } catch (error: any) {
       console.error('Error cancelling invitation:', error)
-      alert(`Failed to cancel invitation: ${error.message || 'Unknown error'}`)
+      alert(`Failed to cancel invitation: ${error.message}`)
     }
   }
 
@@ -159,6 +206,10 @@ export default function TeamPage() {
     return ['admin', 'hr_manager'].includes(currentUserRole)
   }
 
+  function canRemoveMembers() {
+    return currentUserRole === 'admin'
+  }
+
   function getRoleDescription(role: string) {
     switch (role) {
       case 'admin':
@@ -184,12 +235,12 @@ export default function TeamPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
-      {/* Header - WITHOUT Logout Button */}
+      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
           <p className="text-gray-600 mt-1">
-            Manage your organization's team members and invitations
+            Manage {currentOrgName}'s team members and invitations
           </p>
         </div>
         {canInviteUsers() && (
@@ -259,20 +310,20 @@ export default function TeamPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <User className="w-5 h-5" />
-            Active Members ({teamMembers.filter(m => m.is_active).length})
+            Active Members ({teamMembers.length})
           </CardTitle>
           <CardDescription>
-            Team members with active accounts
+            Team members with active accounts in {currentOrgName}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {teamMembers.filter(m => m.is_active).length === 0 ? (
+          {teamMembers.length === 0 ? (
             <p className="text-center text-gray-500 py-8">
               No active team members
             </p>
           ) : (
             <div className="space-y-3">
-              {teamMembers.filter(m => m.is_active).map(member => (
+              {teamMembers.map(member => (
                 <div
                   key={member.id}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
@@ -295,6 +346,17 @@ export default function TeamPage() {
                         Joined {formatDate(member.created_at)}
                       </p>
                     </div>
+                    {canRemoveMembers() && member.user_id !== currentUser?.id && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMember(member.id, member.email)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Remove member"
+                      >
+                        <UserMinus className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -345,6 +407,7 @@ export default function TeamPage() {
                       size="sm"
                       onClick={() => cancelInvitation(invite.id)}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                      title="Cancel invitation"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
