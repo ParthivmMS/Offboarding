@@ -144,6 +144,7 @@ export async function switchOrganization(organizationId: string): Promise<boolea
 
 /**
  * Create a new organization and make current user the admin
+ * Uses database function to bypass RLS issues
  */
 export async function createOrganization(name: string): Promise<Organization | null> {
   const supabase = createClient()
@@ -154,65 +155,49 @@ export async function createOrganization(name: string): Promise<Organization | n
     return null
   }
 
-  console.log('Creating organization:', name, 'for user:', user.id)
+  console.log('Creating organization via database function:', name)
 
-  // Step 1: Create organization
-  const { data: org, error: orgError } = await supabase
-    .from('organizations')
-    .insert({ name })
-    .select()
-    .single()
-
-  if (orgError) {
-    console.error('❌ Error creating organization:', orgError)
-    alert(`Database error: ${orgError.message}`)
-    return null
-  }
-
-  if (!org) {
-    console.error('❌ Organization created but no data returned')
-    return null
-  }
-
-  console.log('✅ Organization created:', org.id)
-
-  // Step 2: Add user as admin member
-  const { error: memberError } = await supabase
-    .from('organization_members')
-    .insert({
-      user_id: user.id,
-      organization_id: org.id,
-      role: 'admin',
-      is_active: true
+  try {
+    // Call the database function that bypasses RLS
+    const { data, error } = await supabase.rpc('create_organization_with_admin', {
+      org_name: name,
+      creator_user_id: user.id
     })
 
-  if (memberError) {
-    console.error('❌ Error adding user to organization:', memberError)
-    alert(`Failed to add member: ${memberError.message}`)
-    // Rollback: delete the organization
-    await supabase.from('organizations').delete().eq('id', org.id)
+    if (error) {
+      console.error('❌ RPC Error:', error)
+      alert(`Failed to create organization: ${error.message}`)
+      return null
+    }
+
+    if (!data || data.length === 0) {
+      console.error('❌ No data returned from function')
+      return null
+    }
+
+    const result = data[0]
+    
+    if (!result.success) {
+      console.error('❌ Function returned error:', result.error_message)
+      alert(`Failed to create organization: ${result.error_message}`)
+      return null
+    }
+
+    console.log('✅ Organization created successfully:', result.organization_id)
+
+    // Return the organization object
+    return {
+      id: result.organization_id,
+      name: result.organization_name,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    
+  } catch (err: any) {
+    console.error('❌ Unexpected error:', err)
+    alert(`Unexpected error: ${err.message}`)
     return null
   }
-
-  console.log('✅ User added as admin member')
-
-  // Step 3: Update user's current organization
-  const { error: updateError } = await supabase
-    .from('users')
-    .update({ 
-      current_organization_id: org.id,
-      organization_id: org.id, // Keep legacy field in sync
-      role: 'admin' // Keep legacy field in sync
-    })
-    .eq('id', user.id)
-
-  if (updateError) {
-    console.error('⚠️ Warning: Could not update user current org:', updateError)
-    // Don't fail - organization is already created
-  }
-
-  console.log('✅ Organization creation complete!')
-  return org
 }
 
 /**
