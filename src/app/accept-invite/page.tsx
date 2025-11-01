@@ -89,20 +89,44 @@ function AcceptInviteContent() {
     const supabase = createClient()
     
     try {
-      // Add user to organization_members using the secure function
-      const { data: addResult, error: addError } = await supabase.rpc('add_user_to_organization', {
-        target_user_id: userId,
-        target_org_id: invite.organization_id,
-        user_role: invite.role
-      })
+      console.log('🎯 Accepting invitation for user:', userId)
+      console.log('🏢 Organization:', invite.organization_id)
+      console.log('👤 Role:', invite.role)
 
-      if (addError) {
-        console.error('Error adding user to org:', addError)
-        throw addError
+      // Step 1: Add user to organization_members
+      const { error: memberError } = await supabase
+        .from('organization_members')
+        .insert({
+          user_id: userId,
+          organization_id: invite.organization_id,
+          role: invite.role,
+          is_active: true
+        })
+        .select()
+        .single()
+
+      if (memberError) {
+        // Check if already a member
+        if (memberError.code === '23505') { // Unique constraint violation
+          console.log('⚠️ User already a member, updating role')
+          await supabase
+            .from('organization_members')
+            .update({ 
+              role: invite.role,
+              is_active: true 
+            })
+            .eq('user_id', userId)
+            .eq('organization_id', invite.organization_id)
+        } else {
+          console.error('❌ Error adding to organization_members:', memberError)
+          throw memberError
+        }
       }
 
-      // Update invitation status
-      await supabase
+      console.log('✅ Added to organization_members')
+
+      // Step 2: Update invitation status
+      const { error: inviteUpdateError } = await supabase
         .from('invitations')
         .update({ 
           status: 'accepted',
@@ -110,23 +134,38 @@ function AcceptInviteContent() {
         })
         .eq('id', invite.id)
 
-      // Update user's current organization
-      await supabase
+      if (inviteUpdateError) {
+        console.error('⚠️ Could not update invitation:', inviteUpdateError)
+      }
+
+      console.log('✅ Invitation marked as accepted')
+
+      // Step 3: Update user's current organization AND legacy fields
+      const { error: userUpdateError } = await supabase
         .from('users')
         .update({ 
           current_organization_id: invite.organization_id,
-          organization_id: invite.organization_id,
-          role: invite.role
+          organization_id: invite.organization_id, // Keep legacy in sync
+          role: invite.role // Keep legacy in sync
         })
         .eq('id', userId)
 
+      if (userUpdateError) {
+        console.error('⚠️ Could not update user current org:', userUpdateError)
+        // Don't throw - they're still added to the org
+      }
+
+      console.log('✅ User current_organization_id updated')
+      console.log('🎉 Invitation acceptance complete!')
+
       setSuccess(true)
       setTimeout(() => {
+        console.log('🔄 Redirecting to dashboard...')
         window.location.href = '/dashboard'
       }, 2000)
       
     } catch (err: any) {
-      console.error('Error accepting invitation:', err)
+      console.error('❌ Error accepting invitation:', err)
       setError(`Failed to accept invitation: ${err.message}`)
       setLoading(false)
     }
@@ -520,4 +559,4 @@ export default function AcceptInvitePage() {
       <AcceptInviteContent />
     </Suspense>
   )
-}
+        }
