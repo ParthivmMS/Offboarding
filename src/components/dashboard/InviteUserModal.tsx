@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
+import { getCurrentOrganization } from '@/lib/workspace'
 
 interface InviteUserModalProps {
   onClose: () => void
@@ -52,59 +53,64 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        setError('Not authenticated')
+        setLoading(false)
+        return
+      }
 
-      // Get current user's organization
-      const { data: userData } = await supabase
-        .from('users')
-        .select('organization_id, name, role')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (!userData) {
-        setError('Could not find your organization')
+      // Get current organization using workspace utility
+      const { organization, role: userRole } = await getCurrentOrganization()
+      
+      if (!organization) {
+        setError('No active organization')
         setLoading(false)
         return
       }
 
       // Check if user can invite
-      if (!['admin', 'hr_manager'].includes(userData.role)) {
+      if (!['admin', 'hr_manager'].includes(userRole || '')) {
         setError('You do not have permission to invite users')
         setLoading(false)
         return
       }
 
-      // Check if user already exists in organization
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email.toLowerCase())
-        .eq('organization_id', userData.organization_id)
-        .maybeSingle()
+      console.log('📧 Inviting user to organization:', organization.name, organization.id)
 
-      if (existingUser) {
+      // Check if user already exists in organization
+      const { data: existingMember } = await supabase
+        .from('organization_members')
+        .select('id, users!inner(email)')
+        .eq('organization_id', organization.id)
+        .eq('is_active', true)
+
+      const alreadyMember = existingMember?.some(
+        (m: any) => m.users?.email?.toLowerCase() === email.toLowerCase()
+      )
+
+      if (alreadyMember) {
         setError('This user is already a member of your organization')
         setLoading(false)
         return
       }
 
-      // Check if there's already a pending invitation - if yes, delete it
+      // Check for existing pending invitation
       const { data: existingInvite } = await supabase
         .from('invitations')
         .select('id')
         .eq('email', email.toLowerCase())
-        .eq('organization_id', userData.organization_id)
+        .eq('organization_id', organization.id)
         .eq('status', 'pending')
         .maybeSingle()
 
-      // If invitation exists, delete it and send a new one
+      // Delete old invitation if exists
       if (existingInvite) {
         await supabase
           .from('invitations')
           .delete()
           .eq('id', existingInvite.id)
         
-        console.log('Deleted old invitation, sending new one')
+        console.log('🗑️ Deleted old invitation')
       }
 
       // Generate secure token
@@ -112,31 +118,43 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + 7) // Expires in 7 days
 
+      console.log('🔑 Generated token:', token.substring(0, 10) + '...')
+
       // Create invitation
-      const { error: inviteError } = await supabase
+      const { data: newInvite, error: inviteError } = await supabase
         .from('invitations')
         .insert({
-          organization_id: userData.organization_id,
+          organization_id: organization.id,
           email: email.toLowerCase(),
           role,
           token,
           invited_by: user.id,
           expires_at: expiresAt.toISOString(),
+          status: 'pending'
         })
+        .select()
+        .single()
 
-      if (inviteError) throw inviteError
+      if (inviteError) {
+        console.error('❌ Error creating invitation:', inviteError)
+        throw inviteError
+      }
 
-      // Get organization name
-      const { data: orgData } = await supabase
-        .from('organizations')
+      console.log('✅ Invitation created:', newInvite.id)
+
+      // Get current user name
+      const { data: userData } = await supabase
+        .from('users')
         .select('name')
-        .eq('id', userData.organization_id)
+        .eq('id', user.id)
         .maybeSingle()
 
-      // Get app URL with fallback
+      // Generate invitation link
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
                      (typeof window !== 'undefined' ? window.location.origin : 'https://offboarding.vercel.app')
       const inviteLink = `${appUrl}/accept-invite?token=${token}`
+      
+      console.log('🔗 Invitation link:', inviteLink)
       
       // Send invitation email
       console.log('📧 Sending invitation email to:', email)
@@ -147,8 +165,8 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         body: JSON.stringify({
           type: 'team_invitation',
           to: [email],
-          inviterName: userData.name,
-          organizationName: orgData?.name || 'your organization',
+          inviterName: userData?.name || 'A team member',
+          organizationName: organization.name,
           role: formatRole(role),
           inviteLink,
         }),
@@ -159,14 +177,16 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
 
       if (!emailResponse.ok) {
         console.error('❌ Email sending failed:', emailResult)
+        // Don't fail - invitation is still created
       } else {
         console.log('✅ Email sent successfully!')
       }
 
+      alert(`✅ Invitation sent to ${email}!`)
       onSuccess()
-    } catch (error) {
-      console.error('Error sending invitation:', error)
-      setError('Failed to send invitation. Please try again.')
+    } catch (error: any) {
+      console.error('❌ Error sending invitation:', error)
+      setError(`Failed to send invitation: ${error.message}`)
     } finally {
       setLoading(false)
     }
