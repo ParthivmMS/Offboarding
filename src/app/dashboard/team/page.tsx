@@ -43,6 +43,7 @@ export default function TeamPage() {
   const [currentOrgId, setCurrentOrgId] = useState<string>('')
   const [currentOrgName, setCurrentOrgName] = useState<string>('')
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [debugInfo, setDebugInfo] = useState<string>('')
   const router = useRouter()
   const supabase = createClient()
 
@@ -52,17 +53,31 @@ export default function TeamPage() {
 
   async function loadTeamData() {
     try {
+      console.log('🔍 === LOADING TEAM DATA ===')
+      
       const { data: { user } } = await supabase.auth.getUser()
+      console.log('👤 Auth User ID:', user?.id)
+      console.log('📧 Auth User Email:', user?.email)
+      
       if (!user) {
         router.push('/login')
         return
       }
 
       // Get current organization from workspace utility
+      console.log('🏢 Calling getCurrentOrganization()...')
       const { organization, role } = await getCurrentOrganization()
       
+      console.log('🏢 Organization Result:', organization)
+      console.log('👔 Role:', role)
+      
       if (!organization) {
-        console.error('No current organization')
+        const errorMsg = 'No current organization found. This usually means:\n' +
+          '1. User has no current_organization_id set\n' +
+          '2. User is not a member of any organization\n' +
+          '3. User membership is not active'
+        console.error('❌', errorMsg)
+        setDebugInfo(errorMsg)
         setLoading(false)
         return
       }
@@ -71,16 +86,24 @@ export default function TeamPage() {
       setCurrentOrgName(organization.name)
       setCurrentUserRole(role || '')
 
+      console.log('✅ Current Organization:', organization.name, '(' + organization.id + ')')
+      console.log('✅ Your Role:', role)
+
       // Get current user data
-      const { data: userData } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('*')
         .eq('id', user.id)
         .maybeSingle()
 
+      console.log('👤 User Data:', userData)
+      if (userError) console.error('❌ User Error:', userError)
+
       setCurrentUser(userData)
 
       // Get all team members from organization_members
+      console.log('👥 Querying organization_members for org:', organization.id)
+      
       const { data: members, error: membersError } = await supabase
         .from('organization_members')
         .select(`
@@ -100,24 +123,38 @@ export default function TeamPage() {
         .eq('is_active', true)
         .order('joined_at', { ascending: false })
 
+      console.log('👥 Raw Members Data:', members)
+      console.log('❌ Members Error:', membersError)
+
       if (membersError) {
-        console.error('Error fetching members:', membersError)
+        console.error('❌ Error fetching members:', membersError)
+        setDebugInfo(`Error fetching members: ${membersError.message}`)
       } else if (members) {
+        console.log('✅ Found', members.length, 'members')
+        
         // Transform the data to match TeamMember interface
-        const transformedMembers = members.map((m: any) => ({
-          id: m.id,
-          user_id: m.user_id,
-          name: m.users.name,
-          email: m.users.email,
-          role: m.role,
-          is_active: m.is_active,
-          created_at: m.users.created_at
-        }))
+        const transformedMembers = members.map((m: any) => {
+          console.log('  - Member:', m.users?.name, '(' + m.users?.email + ')', 'Role:', m.role)
+          return {
+            id: m.id,
+            user_id: m.user_id,
+            name: m.users.name,
+            email: m.users.email,
+            role: m.role,
+            is_active: m.is_active,
+            created_at: m.users.created_at
+          }
+        })
         setTeamMembers(transformedMembers)
+        
+        if (transformedMembers.length === 0) {
+          setDebugInfo('No members found in organization_members table for org: ' + organization.id)
+        }
       }
 
       // Get pending invitations with inviter info
-      const { data: invites } = await supabase
+      console.log('📧 Querying invitations...')
+      const { data: invites, error: inviteError } = await supabase
         .from('invitations')
         .select(`
           *,
@@ -127,11 +164,18 @@ export default function TeamPage() {
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
 
+      console.log('📧 Invitations:', invites)
+      if (inviteError) console.error('❌ Invite Error:', inviteError)
+
       if (invites) {
         setInvitations(invites)
       }
+
+      console.log('🎉 === TEAM DATA LOADED ===')
+      
     } catch (error) {
-      console.error('Error loading team data:', error)
+      console.error('💥 Fatal Error loading team data:', error)
+      setDebugInfo('Fatal error: ' + (error as any).message)
     } finally {
       setLoading(false)
     }
@@ -143,7 +187,6 @@ export default function TeamPage() {
     }
 
     try {
-      // Deactivate the membership instead of deleting
       const { error } = await supabase
         .from('organization_members')
         .update({ is_active: false })
@@ -242,12 +285,29 @@ export default function TeamPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
+      {/* Debug Info Banner */}
+      {debugInfo && (
+        <Card className="mb-6 border-red-200 bg-red-50">
+          <CardHeader>
+            <CardTitle className="text-red-600">🔍 Debug Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="text-xs whitespace-pre-wrap font-mono text-red-700">
+              {debugInfo}
+            </pre>
+            <p className="text-sm text-red-600 mt-4">
+              Check browser console (F12) for detailed logs
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
           <p className="text-gray-600 mt-1">
-            Manage {currentOrgName}'s team members and invitations
+            Manage {currentOrgName || 'your organization'}'s team members and invitations
           </p>
         </div>
         {canInviteUsers() && (
@@ -259,28 +319,30 @@ export default function TeamPage() {
       </div>
 
       {/* Current User Info */}
-      <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
-        <CardContent className="pt-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
-              <User className="w-8 h-8 text-white" />
+      {currentUser && (
+        <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
+                <User className="w-8 h-8 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm text-gray-600 mb-1">You are signed in as</p>
+                <p className="font-bold text-lg text-gray-900">{currentUser?.name}</p>
+                <p className="text-sm text-gray-600">{currentUser?.email}</p>
+              </div>
+              <div>
+                <Badge className={`${getRoleBadgeColor(currentUserRole)} px-4 py-2 text-sm`}>
+                  {formatRole(currentUserRole)}
+                </Badge>
+                <p className="text-xs text-gray-600 mt-2 text-right">
+                  {getRoleDescription(currentUserRole)}
+                </p>
+              </div>
             </div>
-            <div className="flex-1">
-              <p className="text-sm text-gray-600 mb-1">You are signed in as</p>
-              <p className="font-bold text-lg text-gray-900">{currentUser?.name}</p>
-              <p className="text-sm text-gray-600">{currentUser?.email}</p>
-            </div>
-            <div>
-              <Badge className={`${getRoleBadgeColor(currentUserRole)} px-4 py-2 text-sm`}>
-                {formatRole(currentUserRole)}
-              </Badge>
-              <p className="text-xs text-gray-600 mt-2 text-right">
-                {getRoleDescription(currentUserRole)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Team Purpose Explanation */}
       <Card className="mb-6 border-2 border-amber-200 bg-amber-50">
@@ -320,14 +382,17 @@ export default function TeamPage() {
             Active Members ({teamMembers.length})
           </CardTitle>
           <CardDescription>
-            Team members with active accounts in {currentOrgName}
+            Team members with active accounts in {currentOrgName || 'this organization'}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {teamMembers.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">
-              No active team members
-            </p>
+            <div className="text-center py-8">
+              <p className="text-gray-500 mb-4">No active team members found</p>
+              <p className="text-sm text-gray-400">
+                Check the browser console (F12) for detailed debug information
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {teamMembers.map(member => (
