@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getCurrentOrganization } from '@/lib/workspace'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Users, CheckCircle, Clock, AlertCircle } from 'lucide-react'
@@ -32,20 +33,16 @@ export default function DashboardPage() {
         return
       }
 
-      // Get user's organization
-      const { data: userData } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .maybeSingle()
+      // ✅ FIX: Use getCurrentOrganization from workspace utility
+      const { organization } = await getCurrentOrganization()
 
-      if (!userData?.organization_id) {
-        console.error('No organization found')
+      if (!organization) {
+        console.error('No current organization')
         setLoading(false)
         return
       }
 
-      const orgId = userData.organization_id
+      const orgId = organization.id
 
       // Get active offboardings count
       const { count: activeCount } = await supabase
@@ -117,7 +114,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Main Content - NO HEADER HERE! Layout provides it */}
       <main className="container mx-auto px-4 py-8">
         <div className="mb-8 flex items-center justify-between">
           <div>
