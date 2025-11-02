@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Users, Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { Users, Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
 
 function AcceptInviteContent() {
   const router = useRouter()
@@ -18,6 +18,7 @@ function AcceptInviteContent() {
   const [processing, setProcessing] = useState(false)
   const [invitation, setInvitation] = useState<any>(null)
   const [error, setError] = useState<string>('')
+  const [wrongAccountWarning, setWrongAccountWarning] = useState<string>('')
   const [existingUser, setExistingUser] = useState(false)
   const [loginMode, setLoginMode] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -66,15 +67,23 @@ function AcceptInviteContent() {
       setInvitation(invite)
       setFormData(prev => ({ ...prev, email: invite.email }))
 
-      // Check if user already has account
+      // Check if user is currently logged in
       const { data: { user } } = await supabase.auth.getUser()
       
       if (user) {
-        // User is logged in - accept invitation directly
-        await acceptInvitationForExistingUser(user.id, invite)
+        // ✅ CRITICAL FIX: Verify email matches invitation
+        if (user.email?.toLowerCase() === invite.email.toLowerCase()) {
+          // Correct user is logged in - accept invitation directly
+          await acceptInvitationForExistingUser(user.id, invite)
+        } else {
+          // Wrong user is logged in!
+          setWrongAccountWarning(
+            `You're currently logged in as ${user.email}, but this invitation is for ${invite.email}. Please logout and login with the correct account, or create a new account.`
+          )
+          setLoading(false)
+        }
       } else {
-        // Check if email exists in auth system
-        // We can't directly check, so just show signup form
+        // No user logged in - show signup form
         setLoading(false)
       }
       
@@ -85,6 +94,13 @@ function AcceptInviteContent() {
     }
   }
 
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    setWrongAccountWarning('')
+    setLoading(false)
+  }
+
   async function acceptInvitationForExistingUser(userId: string, invite: any) {
     const supabase = createClient()
     
@@ -93,7 +109,7 @@ function AcceptInviteContent() {
       console.log('🏢 Organization:', invite.organization_id)
       console.log('👤 Role:', invite.role)
 
-      // ✅ CRITICAL FIX: Call the SECURITY DEFINER function to bypass RLS
+      // ✅ Call the SECURITY DEFINER function to bypass RLS
       const { data: addResult, error: addError } = await supabase
         .rpc('add_user_to_organization', {
           target_user_id: userId,
@@ -119,7 +135,6 @@ function AcceptInviteContent() {
 
       if (inviteUpdateError) {
         console.error('⚠️ Could not update invitation:', inviteUpdateError)
-        // Don't throw - user is already added to org
       }
 
       console.log('✅ Invitation marked as accepted')
@@ -129,14 +144,13 @@ function AcceptInviteContent() {
         .from('users')
         .update({ 
           current_organization_id: invite.organization_id,
-          organization_id: invite.organization_id, // Keep legacy in sync
-          role: invite.role // Keep legacy in sync
+          organization_id: invite.organization_id,
+          role: invite.role
         })
         .eq('id', userId)
 
       if (userUpdateError) {
         console.error('⚠️ Could not update user current org:', userUpdateError)
-        // Don't throw - they're still added to the org
       }
 
       console.log('✅ User current_organization_id updated')
@@ -210,10 +224,9 @@ function AcceptInviteContent() {
 
       if (userError) {
         console.error('Error creating user record:', userError)
-        // Continue anyway - auth account was created
       }
 
-      // ✅ CRITICAL FIX: Use SECURITY DEFINER function instead of direct INSERT
+      // Use SECURITY DEFINER function to add to organization
       const { data: addResult, error: addError } = await supabase
         .rpc('add_user_to_organization', {
           target_user_id: authData.user.id,
@@ -223,7 +236,6 @@ function AcceptInviteContent() {
 
       if (addError) {
         console.error('Error calling add_user_to_organization:', addError)
-        // Continue anyway - we'll let them fix it later
       }
 
       // Update invitation status
@@ -239,13 +251,11 @@ function AcceptInviteContent() {
       
       // Check if email confirmation is required
       if (authData.user.identities && authData.user.identities.length > 0) {
-        // Email confirmation required
         setTimeout(() => {
           alert('📧 Confirmation email sent! Please check your inbox and click the verification link.')
           router.push('/login')
         }, 1000)
       } else {
-        // Auto-logged in
         setTimeout(() => {
           window.location.href = '/dashboard'
         }, 2000)
@@ -280,6 +290,11 @@ function AcceptInviteContent() {
 
       if (!authData.user) {
         throw new Error('Login failed')
+      }
+
+      // ✅ Verify email matches before accepting
+      if (authData.user.email?.toLowerCase() !== invitation.email.toLowerCase()) {
+        throw new Error('This invitation is for a different email address')
       }
 
       // Accept invitation for this user
@@ -318,6 +333,38 @@ function AcceptInviteContent() {
               onClick={() => router.push('/login')}
             >
               Go to Login
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (wrongAccountWarning) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+        <Card className="w-full max-w-md border-orange-200">
+          <CardHeader className="text-center">
+            <AlertTriangle className="w-16 h-16 text-orange-600 mx-auto mb-4" />
+            <CardTitle className="text-orange-600">Wrong Account</CardTitle>
+            <CardDescription className="text-left mt-4">
+              {wrongAccountWarning}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button 
+              className="w-full" 
+              variant="default"
+              onClick={handleLogout}
+            >
+              Logout & Accept Invitation
+            </Button>
+            <Button 
+              className="w-full" 
+              variant="outline"
+              onClick={() => router.push('/dashboard')}
+            >
+              Go to Dashboard
             </Button>
           </CardContent>
         </Card>
