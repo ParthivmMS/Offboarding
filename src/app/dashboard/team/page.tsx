@@ -28,6 +28,10 @@ interface Invitation {
   created_at: string
   expires_at: string
   invited_by: string
+  inviter?: {
+    name: string
+    email: string
+  }
 }
 
 export default function TeamPage() {
@@ -112,10 +116,13 @@ export default function TeamPage() {
         setTeamMembers(transformedMembers)
       }
 
-      // Get pending invitations
+      // Get pending invitations with inviter info
       const { data: invites } = await supabase
         .from('invitations')
-        .select('*')
+        .select(`
+          *,
+          inviter:users!invitations_invited_by_fkey(name, email)
+        `)
         .eq('organization_id', organization.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
@@ -391,7 +398,7 @@ export default function TeamPage() {
                     <div className="flex-1">
                       <div className="font-medium text-gray-900">{invite.email}</div>
                       <div className="text-sm text-gray-600">
-                        Invited {formatDate(invite.created_at)}
+                        Invited by {invite.inviter?.name || 'Unknown'} on {formatDate(invite.created_at)}
                       </div>
                     </div>
                   </div>
