@@ -93,37 +93,20 @@ function AcceptInviteContent() {
       console.log('🏢 Organization:', invite.organization_id)
       console.log('👤 Role:', invite.role)
 
-      // Step 1: Add user to organization_members
-      const { error: memberError } = await supabase
-        .from('organization_members')
-        .insert({
-          user_id: userId,
-          organization_id: invite.organization_id,
-          role: invite.role,
-          is_active: true
+      // ✅ CRITICAL FIX: Call the SECURITY DEFINER function to bypass RLS
+      const { data: addResult, error: addError } = await supabase
+        .rpc('add_user_to_organization', {
+          target_user_id: userId,
+          target_org_id: invite.organization_id,
+          user_role: invite.role
         })
-        .select()
-        .single()
 
-      if (memberError) {
-        // Check if already a member
-        if (memberError.code === '23505') { // Unique constraint violation
-          console.log('⚠️ User already a member, updating role')
-          await supabase
-            .from('organization_members')
-            .update({ 
-              role: invite.role,
-              is_active: true 
-            })
-            .eq('user_id', userId)
-            .eq('organization_id', invite.organization_id)
-        } else {
-          console.error('❌ Error adding to organization_members:', memberError)
-          throw memberError
-        }
+      if (addError) {
+        console.error('❌ Error calling add_user_to_organization:', addError)
+        throw new Error(addError.message || 'Failed to add user to organization')
       }
 
-      console.log('✅ Added to organization_members')
+      console.log('✅ Successfully added to organization via SECURITY DEFINER function')
 
       // Step 2: Update invitation status
       const { error: inviteUpdateError } = await supabase
@@ -136,6 +119,7 @@ function AcceptInviteContent() {
 
       if (inviteUpdateError) {
         console.error('⚠️ Could not update invitation:', inviteUpdateError)
+        // Don't throw - user is already added to org
       }
 
       console.log('✅ Invitation marked as accepted')
@@ -210,7 +194,7 @@ function AcceptInviteContent() {
         throw new Error('Failed to create user account')
       }
 
-      // Create user record with organization membership
+      // Create user record
       const { error: userError } = await supabase
         .from('users')
         .insert({
@@ -226,20 +210,20 @@ function AcceptInviteContent() {
 
       if (userError) {
         console.error('Error creating user record:', userError)
+        // Continue anyway - auth account was created
       }
 
-      // Add to organization_members
-      const { error: memberError } = await supabase
-        .from('organization_members')
-        .insert({
-          user_id: authData.user.id,
-          organization_id: invitation.organization_id,
-          role: invitation.role,
-          is_active: true
+      // ✅ CRITICAL FIX: Use SECURITY DEFINER function instead of direct INSERT
+      const { data: addResult, error: addError } = await supabase
+        .rpc('add_user_to_organization', {
+          target_user_id: authData.user.id,
+          target_org_id: invitation.organization_id,
+          user_role: invitation.role
         })
 
-      if (memberError) {
-        console.error('Error adding to organization_members:', memberError)
+      if (addError) {
+        console.error('Error calling add_user_to_organization:', addError)
+        // Continue anyway - we'll let them fix it later
       }
 
       // Update invitation status
@@ -559,4 +543,4 @@ export default function AcceptInvitePage() {
       <AcceptInviteContent />
     </Suspense>
   )
-        }
+}
