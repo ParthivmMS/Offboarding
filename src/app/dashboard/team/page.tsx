@@ -104,6 +104,7 @@ export default function TeamPage() {
       // Get all team members from organization_members
       console.log('👥 Querying organization_members for org:', organization.id)
       
+      // ✅ FIX: Use explicit foreign key column name
       const { data: members, error: membersError } = await supabase
         .from('organization_members')
         .select(`
@@ -112,7 +113,7 @@ export default function TeamPage() {
           role,
           is_active,
           joined_at,
-          users!inner(
+          users!organization_members_user_id_fkey(
             id,
             name,
             email,
