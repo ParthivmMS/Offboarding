@@ -1,36 +1,74 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { getCurrentOrganization } from '@/lib/workspace'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Plus, FileText } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
+export default function TemplatesPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [defaultTemplates, setDefaultTemplates] = useState<any[]>([])
+  const [customTemplates, setCustomTemplates] = useState<any[]>([])
 
-export default async function TemplatesPage() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  const { data: userData } = await supabase
-    .from('users')
-    .select('organization_id')
-    .eq('id', user?.id)
-    .single()
+  useEffect(() => {
+    loadTemplates()
+  }, [])
 
-  // Get default templates (organization_id is null)
-  const { data: defaultTemplates } = await supabase
-    .from('templates')
-    .select('*, template_tasks(count)')
-    .is('organization_id', null)
-    .eq('is_active', true)
+  async function loadTemplates() {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
 
-  // Get custom templates for this organization
-  const { data: customTemplates } = await supabase
-    .from('templates')
-    .select('*, template_tasks(count)')
-    .eq('organization_id', userData?.organization_id)
-    .eq('is_active', true)
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      // ✅ FIX: Use getCurrentOrganization from workspace utility
+      const { organization } = await getCurrentOrganization()
+
+      if (!organization) {
+        console.error('No current organization')
+        setLoading(false)
+        return
+      }
+
+      // Get default templates (organization_id is null)
+      const { data: defaults } = await supabase
+        .from('templates')
+        .select('*, template_tasks(count)')
+        .is('organization_id', null)
+        .eq('is_active', true)
+
+      // Get custom templates for this organization
+      const { data: custom } = await supabase
+        .from('templates')
+        .select('*, template_tasks(count)')
+        .eq('organization_id', organization.id)
+        .eq('is_active', true)
+
+      setDefaultTemplates(defaults || [])
+      setCustomTemplates(custom || [])
+    } catch (error) {
+      console.error('Failed to load templates:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
