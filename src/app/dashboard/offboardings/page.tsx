@@ -1,4 +1,9 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { getCurrentOrganization } from '@/lib/workspace'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -6,36 +11,73 @@ import { Input } from '@/components/ui/input'
 import Link from 'next/link'
 import { Plus, Search } from 'lucide-react'
 
-export const dynamic = 'force-dynamic'
+export default function OffboardingsPage() {
+  const router = useRouter()
+  const [loading, setLoading] = useState(true)
+  const [offboardings, setOffboardings] = useState<any[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
 
-export default async function OffboardingsPage() {
-  const supabase = await createClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  const { data: userData } = await supabase
-    .from('users')
-    .select('organization_id')
-    .eq('id', user?.id)
-    .single()
+  useEffect(() => {
+    loadOffboardings()
+  }, [])
 
-  // Get all offboardings with task progress
-  const { data: offboardings } = await supabase
-    .from('offboardings')
-    .select(`
-      *,
-      tasks (
-        id,
-        completed
-      )
-    `)
-    .eq('organization_id', userData?.organization_id)
-    .order('created_at', { ascending: false })
+  async function loadOffboardings() {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.push('/login')
+        return
+      }
+
+      // ✅ FIX: Use getCurrentOrganization from workspace utility
+      const { organization } = await getCurrentOrganization()
+
+      if (!organization) {
+        console.error('No current organization')
+        setLoading(false)
+        return
+      }
+
+      // Get all offboardings with task progress
+      const { data } = await supabase
+        .from('offboardings')
+        .select(`
+          *,
+          tasks (
+            id,
+            completed
+          )
+        `)
+        .eq('organization_id', organization.id)
+        .order('created_at', { ascending: false })
+
+      setOffboardings(data || [])
+    } catch (error) {
+      console.error('Failed to load offboardings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const calculateProgress = (tasks: any[]) => {
     if (!tasks || tasks.length === 0) return 0
     const completed = tasks.filter(t => t.completed).length
     return Math.round((completed / tasks.length) * 100)
+  }
+
+  // Filter offboardings by search term
+  const filteredOffboardings = offboardings.filter(offboarding =>
+    offboarding.employee_name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
   }
 
   return (
@@ -62,17 +104,18 @@ export default async function OffboardingsPage() {
               <Input
                 placeholder="Search by employee name..."
                 className="pl-10"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="outline">Filter</Button>
           </div>
         </CardContent>
       </Card>
 
       {/* Offboardings List */}
       <div className="space-y-4">
-        {offboardings && offboardings.length > 0 ? (
-          offboardings.map((offboarding) => {
+        {filteredOffboardings && filteredOffboardings.length > 0 ? (
+          filteredOffboardings.map((offboarding) => {
             const progress = calculateProgress(offboarding.tasks)
             const completedTasks = offboarding.tasks.filter((t: any) => t.completed).length
             const totalTasks = offboarding.tasks.length
@@ -141,14 +184,26 @@ export default async function OffboardingsPage() {
         ) : (
           <Card>
             <CardContent className="text-center py-12">
-              <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Plus className="w-8 h-8 text-slate-400" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">No offboardings yet</h3>
-              <p className="text-slate-500 mb-4">Start your first employee offboarding process</p>
-              <Link href="/dashboard/offboardings/new">
-                <Button>Create First Offboarding</Button>
-              </Link>
+              {searchTerm ? (
+                <>
+                  <Search className="w-12 h-12 mx-auto mb-4 text-slate-300" />
+                  <p className="text-slate-500 mb-4">No offboardings found matching "{searchTerm}"</p>
+                  <Button variant="outline" onClick={() => setSearchTerm('')}>
+                    Clear Search
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Plus className="w-8 h-8 text-slate-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">No offboardings yet</h3>
+                  <p className="text-slate-500 mb-4">Start your first employee offboarding process</p>
+                  <Link href="/dashboard/offboardings/new">
+                    <Button>Create First Offboarding</Button>
+                  </Link>
+                </>
+              )}
             </CardContent>
           </Card>
         )}
