@@ -94,65 +94,39 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         return
       }
 
-      // Check for existing pending invitation
-      const { data: existingInvite } = await supabase
-        .from('invitations')
-        .select('id')
-        .eq('email', email.toLowerCase())
-        .eq('organization_id', organization.id)
-        .eq('status', 'pending')
-        .maybeSingle()
+      console.log('🔑 Calling database function to create invitation...')
 
-      // Delete old invitation if exists
-      if (existingInvite) {
-        await supabase
-          .from('invitations')
-          .delete()
-          .eq('id', existingInvite.id)
-        
-        console.log('🗑️ Deleted old invitation')
-      }
-
-      // Generate secure token
-      const token = generateSecureToken()
-      const expiresAt = new Date()
-      expiresAt.setDate(expiresAt.getDate() + 7) // Expires in 7 days
-
-      console.log('🔑 Generated token:', token.substring(0, 10) + '...')
-
-      // Create invitation
-      const { data: newInvite, error: inviteError } = await supabase
-        .from('invitations')
-        .insert({
-          organization_id: organization.id,
-          email: email.toLowerCase(),
-          role,
-          token,
-          invited_by: user.id,
-          expires_at: expiresAt.toISOString(),
-          status: 'pending'
-        })
-        .select()
-        .single()
+      // Call database function to create invitation (bypasses RLS!)
+      const { data: inviteResult, error: inviteError } = await supabase.rpc('send_team_invitation', {
+        invite_email: email.toLowerCase(),
+        invite_role: role,
+        invite_org_id: organization.id
+      })
 
       if (inviteError) {
-        console.error('❌ Error creating invitation:', inviteError)
+        console.error('❌ Error calling function:', inviteError)
         throw inviteError
       }
 
-      console.log('✅ Invitation created:', newInvite.id)
+      if (!inviteResult || inviteResult.length === 0 || !inviteResult[0].success) {
+        const errorMsg = inviteResult?.[0]?.error_message || 'Unknown error'
+        console.error('❌ Function returned error:', errorMsg)
+        throw new Error(errorMsg)
+      }
 
-      // Get current user name
-      const { data: userData } = await supabase
-        .from('users')
-        .select('name')
-        .eq('id', user.id)
-        .maybeSingle()
+      const token = inviteResult[0].token
+      console.log('✅ Invitation created with token:', token.substring(0, 10) + '...')
 
       // Generate invitation link
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
                      (typeof window !== 'undefined' ? window.location.origin : 'https://offboarding.vercel.app')
       const inviteLink = `${appUrl}/accept-invite?token=${token}`
+      // Get current user name for email
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name')
+        .eq('id', user.id)
+        .maybeSingle()
       
       console.log('🔗 Invitation link:', inviteLink)
       
