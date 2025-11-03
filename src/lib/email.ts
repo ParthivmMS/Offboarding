@@ -334,14 +334,7 @@ export async function sendOffboardingCompletedEmail({
           <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
             <h3 style="margin-top: 0; color: #15803d;">${employeeName}</h3>
             <p><strong>Department:</strong> ${department}</p>
-            <p><strong>Completed on:</strong> ${new Date(completionDate).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}</p>
+            <p><strong>Completed on:</strong> ${completionDate}</p>
             <p><strong>Total Tasks Completed:</strong> ${totalTasks}</p>
           </div>
           
