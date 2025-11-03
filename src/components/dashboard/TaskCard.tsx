@@ -22,7 +22,7 @@ const handleComplete = async () => {
         .eq('id', user?.id)
         .single()
 
-      // ✅ FIX: Get current timestamp for proper formatting
+      // ✅ FIX: Get current timestamp for proper formatting (UTC for international markets)
       const completedAt = new Date()
 
       // Update task as completed
@@ -47,7 +47,7 @@ const handleComplete = async () => {
         .eq('id', task.offboarding_id)
         .single()
 
-      // ✅ FIX: Format timestamp for email in user's local timezone
+      // ✅ FIX: Format timestamp in UTC for international consistency
       const formattedCompletionTime = completedAt.toLocaleString('en-US', {
         weekday: 'long',
         year: 'numeric',
@@ -55,6 +55,7 @@ const handleComplete = async () => {
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+        timeZone: 'UTC',
         timeZoneName: 'short'
       })
 
@@ -86,7 +87,7 @@ const handleComplete = async () => {
               taskName: task.task_name,
               employeeName: offboardingData?.employee_name || 'Employee',
               completedBy: userData?.name || userData?.email || 'User',
-              completedOn: formattedCompletionTime, // ✅ FIX: Send formatted time
+              completedOn: formattedCompletionTime, // ✅ FIX: Send formatted UTC time
               notes: notes.trim(),
               offboardingId: task.offboarding_id,
             }),
@@ -140,7 +141,7 @@ const handleComplete = async () => {
                 to: recipients,
                 employeeName: offboardingData.employee_name,
                 department: offboardingData.department,
-                completionDate: formattedCompletionTime, // ✅ FIX: Use formatted time
+                completionDate: formattedCompletionTime, // ✅ FIX: Use formatted UTC time
                 offboardingId: task.offboarding_id,
                 totalTasks: offboardingData.tasks.length,
               }),
