@@ -252,6 +252,7 @@ export async function sendTaskCompletedEmail({
   taskName,
   employeeName,
   completedBy,
+  completedOn, // ✅ ADDED
   notes,
   offboardingId,
 }: SendTaskCompletedEmailParams) {
@@ -275,14 +276,7 @@ export async function sendTaskCompletedEmail({
           <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
             <h3 style="margin-top: 0; color: #15803d;">${taskName}</h3>
             <p><strong>Completed by:</strong> ${completedBy}</p>
-            <p><strong>Completed on:</strong> ${new Date().toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}</p>
+            <p><strong>Completed on:</strong> ${completedOn}</p>
             ${notes ? `
               <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #bbf7d0;">
                 <strong>Completion Notes:</strong>
