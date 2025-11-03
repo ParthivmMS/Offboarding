@@ -64,6 +64,7 @@ interface SendTaskCompletedEmailParams {
   taskName: string
   employeeName: string
   completedBy: string
+  completedOn: string // ✅ ADDED
   notes?: string
   offboardingId: string
 }
