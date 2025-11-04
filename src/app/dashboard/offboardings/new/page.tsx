@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { getCurrentOrganization } from '@/lib/workspace'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -10,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, AlertCircle } from 'lucide-react'
 
 export default function NewOffboardingPage() {
   const router = useRouter()
@@ -19,6 +20,8 @@ export default function NewOffboardingPage() {
   const [loadingTemplates, setLoadingTemplates] = useState(true)
   const [templates, setTemplates] = useState<any[]>([])
   const [organizationId, setOrganizationId] = useState<string>('')
+  const [userRole, setUserRole] = useState<string>('')
+  const [canCreateOffboarding, setCanCreateOffboarding] = useState(true)
   const [formData, setFormData] = useState({
     employee_name: '',
     employee_email: '',
@@ -46,39 +49,29 @@ export default function NewOffboardingPage() {
         return
       }
 
-      console.log('Auth User ID:', user.id)
-      console.log('Auth User Email:', user.email)
+      // ✅ FIX: Get current organization and role using workspace utility
+      const { organization, role } = await getCurrentOrganization()
 
-      // Get user's organization
-      const { data: userData, error: userDataError } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (userDataError) {
-        console.error('Error fetching user data:', userDataError)
-        throw new Error('Failed to fetch user data')
-      }
-
-      if (!userData) {
-        console.error('No user data found')
-        throw new Error('User data not found')
-      }
-
-      if (!userData.organization_id) {
-        console.error('User has no organization_id:', userData)
+      if (!organization) {
         throw new Error('User is not associated with an organization')
       }
 
-      console.log('Fetching templates for organization:', userData.organization_id)
-      setOrganizationId(userData.organization_id)
+      setOrganizationId(organization.id)
+      setUserRole(role || '')
+
+      // ✅ FIX: Check if user has permission to create offboardings
+      const hasPermission = ['admin', 'hr_manager'].includes(role || '')
+      setCanCreateOffboarding(hasPermission)
+
+      if (!hasPermission) {
+        console.warn('User does not have permission to create offboardings')
+      }
 
       // Get templates (both default and organization-specific)
       const { data: templatesData, error: templatesError } = await supabase
         .from('templates')
         .select('id, name, role_type, description, is_default')
-        .or(`is_default.eq.true,organization_id.eq.${userData.organization_id}`)
+        .or(`is_default.eq.true,organization_id.eq.${organization.id}`)
         .eq('is_active', true)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: false })
@@ -87,8 +80,6 @@ export default function NewOffboardingPage() {
         console.error('Error fetching templates:', templatesError)
         throw templatesError
       }
-
-      console.log('Templates fetched:', templatesData?.length || 0)
 
       if (!templatesData || templatesData.length === 0) {
         console.warn('No templates found')
@@ -115,7 +106,6 @@ export default function NewOffboardingPage() {
         })
       )
 
-      console.log('Templates with counts:', templatesWithCounts)
       setTemplates(templatesWithCounts)
     } catch (error: any) {
       console.error('Failed to load templates:', error)
@@ -131,6 +121,17 @@ export default function NewOffboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // ✅ FIX: Check permissions before attempting to create
+    if (!canCreateOffboarding) {
+      toast({
+        title: '⚠️ Permission Denied',
+        description: 'You need Admin or HR Manager permissions to create offboardings. Please contact your administrator.',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -141,14 +142,10 @@ export default function NewOffboardingPage() {
         throw new Error('Not authenticated')
       }
 
-      // Get user's organization
-      const { data: userData } = await supabase
-        .from('users')
-        .select('organization_id')
-        .eq('id', user.id)
-        .single()
+      // Get current organization
+      const { organization } = await getCurrentOrganization()
 
-      if (!userData || !userData.organization_id) {
+      if (!organization) {
         throw new Error('Organization not found')
       }
 
@@ -156,7 +153,7 @@ export default function NewOffboardingPage() {
       const { data: offboarding, error: offboardingError } = await supabase
         .from('offboardings')
         .insert({
-          organization_id: userData.organization_id,
+          organization_id: organization.id,
           employee_name: formData.employee_name,
           employee_email: formData.employee_email,
           department: formData.department,
@@ -174,6 +171,12 @@ export default function NewOffboardingPage() {
 
       if (offboardingError) {
         console.error('Offboarding creation error:', offboardingError)
+        
+        // ✅ FIX: Detect RLS permission error and show helpful message
+        if (offboardingError.code === '42501' || offboardingError.message.includes('policy')) {
+          throw new Error('Permission denied: You need Admin or HR Manager role to create offboardings.')
+        }
+        
         throw new Error('Failed to create offboarding')
       }
 
@@ -227,35 +230,31 @@ export default function NewOffboardingPage() {
         // Get unique departments from tasks
         const departments = [...new Set(templateTasks.map(t => t.assigned_department).filter(Boolean))]
         
-        // Get current user name and organization
+        // Get current user name
         const { data: currentUser } = await supabase
           .from('users')
-          .select('name, email, organization_id')
+          .select('name, email')
           .eq('id', user.id)
           .single()
 
-        if (currentUser?.organization_id) {
-          await fetch('/api/send-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'offboarding_created',
-              departments,
-              employeeName: formData.employee_name,
-              employeeDepartment: formData.department,
-              lastWorkingDay: formData.last_working_day,
-              taskCount: tasks.length,
-              createdBy: currentUser?.name || currentUser?.email || 'Admin',
-              offboardingId: offboarding.id,
-              managerEmail: formData.manager_email || undefined,
-              organizationId: currentUser.organization_id,
-            }),
-          })
-          
-          console.log('Offboarding created emails sent')
-        } else {
-          console.warn('No organization ID found, skipping email notification')
-        }
+        await fetch('/api/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'offboarding_created',
+            departments,
+            employeeName: formData.employee_name,
+            employeeDepartment: formData.department,
+            lastWorkingDay: formData.last_working_day,
+            taskCount: tasks.length,
+            createdBy: currentUser?.name || currentUser?.email || 'Admin',
+            offboardingId: offboarding.id,
+            managerEmail: formData.manager_email || undefined,
+            organizationId: organization.id,
+          }),
+        })
+        
+        console.log('Offboarding created emails sent')
       } catch (emailError) {
         console.error('Failed to send offboarding created emails:', emailError)
         // Don't fail the offboarding creation if emails fail
@@ -277,6 +276,48 @@ export default function NewOffboardingPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // ✅ FIX: Show permission warning if user doesn't have access
+  if (!loadingTemplates && !canCreateOffboarding) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Start New Offboarding</h1>
+            <p className="text-slate-600 mt-1">Create a new employee offboarding process</p>
+          </div>
+        </div>
+
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-orange-900">
+              <AlertCircle className="w-5 h-5" />
+              Permission Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <p className="text-orange-800">
+                You need <strong>Admin</strong> or <strong>HR Manager</strong> permissions to create offboardings.
+              </p>
+              <p className="text-sm text-orange-700">
+                Your current role: <strong className="capitalize">{userRole.replace('_', ' ')}</strong>
+              </p>
+              <p className="text-sm text-orange-700">
+                Please contact your organization administrator to request the appropriate permissions.
+              </p>
+              <Button onClick={() => router.push('/dashboard')} className="mt-4">
+                Return to Dashboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -455,4 +496,4 @@ export default function NewOffboardingPage() {
       </Card>
     </div>
   )
-        }
+}
