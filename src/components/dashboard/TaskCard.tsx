@@ -15,9 +15,15 @@ interface TaskCardProps {
   task: any
   isOverdue?: boolean
   onUpdate?: () => void
+  onAllTasksCompleted?: (offboardingData: any) => void // NEW: Callback when all tasks done
 }
 
-export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCardProps) {
+export default function TaskCard({ 
+  task, 
+  isOverdue = false, 
+  onUpdate,
+  onAllTasksCompleted // NEW: Accept callback
+}: TaskCardProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [showNotes, setShowNotes] = useState(false)
@@ -134,7 +140,10 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
           // Update offboarding status to completed
           await supabase
             .from('offboardings')
-            .update({ status: 'completed' })
+            .update({ 
+              status: 'completed',
+              completed_at: completedAt.toISOString()
+            })
             .eq('id', task.offboarding_id)
 
           // Send offboarding completed email
@@ -176,10 +185,19 @@ export default function TaskCard({ task, isOverdue = false, onUpdate }: TaskCard
             console.error('Failed to send offboarding completed email:', emailError)
           }
 
+          // 🎉 NEW: Calculate time saved (assume 1.5 hours per task on average)
+          const hoursSaved = Math.round(offboardingData.tasks.length * 1.5)
+
           toast({
             title: '🎉 Offboarding Completed!',
-            description: `All tasks completed for ${offboardingData.employee_name}`,
+            description: `All tasks completed for ${offboardingData.employee_name}. You saved ~${hoursSaved} hours!`,
+            duration: 5000,
           })
+
+          // 🎯 NEW: Trigger exit survey modal in parent component
+          if (onAllTasksCompleted) {
+            onAllTasksCompleted(offboardingData)
+          }
         } else {
           toast({
             title: 'Task completed!',
