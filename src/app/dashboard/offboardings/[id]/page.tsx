@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TaskCard from '@/components/dashboard/TaskCard'
+import ExitSurveyModal from '@/components/dashboard/ExitSurveyModal'
 import { ArrowLeft, User, Calendar, Briefcase, Mail, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
@@ -19,6 +20,7 @@ export default function OffboardingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [offboarding, setOffboarding] = useState<any>(null)
   const [tasks, setTasks] = useState<any[]>([])
+  const [showExitSurvey, setShowExitSurvey] = useState(false) // NEW: Exit survey state
 
   useEffect(() => {
     loadOffboarding()
@@ -88,6 +90,38 @@ export default function OffboardingDetailPage() {
   function refreshData() {
     setLoading(true)
     loadOffboarding()
+  }
+
+  // 🎯 NEW: Handle when all tasks are completed
+  const handleAllTasksCompleted = async (completedOffboardingData: any) => {
+    // Check if exit survey already exists for this offboarding
+    const supabase = createClient()
+    const { data: existingSurvey } = await supabase
+      .from('exit_surveys')
+      .select('id')
+      .eq('offboarding_id', params.id)
+      .single()
+
+    // Only show survey if one hasn't been submitted yet
+    if (!existingSurvey) {
+      setShowExitSurvey(true)
+    } else {
+      toast({
+        title: '✅ Exit Survey Already Submitted',
+        description: 'AI insights are being generated from your feedback!',
+      })
+    }
+  }
+
+  // 🎯 NEW: Handle exit survey completion
+  const handleSurveyComplete = () => {
+    setShowExitSurvey(false)
+    toast({
+      title: '🎉 Thank You!',
+      description: 'Your feedback will help us improve. Check the Insights dashboard for AI analysis!',
+      duration: 6000,
+    })
+    refreshData()
   }
 
   if (loading) {
@@ -261,7 +295,12 @@ export default function OffboardingDetailPage() {
             <TabsContent value="upcoming" className="space-y-4 mt-6">
               {upcomingTasks.length > 0 ? (
                 upcomingTasks.map(task => (
-                  <TaskCard key={task.id} task={task} onUpdate={refreshData} />
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    onUpdate={refreshData}
+                    onAllTasksCompleted={handleAllTasksCompleted}
+                  />
                 ))
               ) : (
                 <div className="text-center py-8 text-slate-500">
@@ -274,7 +313,13 @@ export default function OffboardingDetailPage() {
             <TabsContent value="overdue" className="space-y-4 mt-6">
               {overdueTasks.length > 0 ? (
                 overdueTasks.map(task => (
-                  <TaskCard key={task.id} task={task} isOverdue onUpdate={refreshData} />
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    isOverdue 
+                    onUpdate={refreshData}
+                    onAllTasksCompleted={handleAllTasksCompleted}
+                  />
                 ))
               ) : (
                 <div className="text-center py-8 text-slate-500">
@@ -287,7 +332,12 @@ export default function OffboardingDetailPage() {
             <TabsContent value="completed" className="space-y-4 mt-6">
               {completedTasksList.length > 0 ? (
                 completedTasksList.map(task => (
-                  <TaskCard key={task.id} task={task} onUpdate={refreshData} />
+                  <TaskCard 
+                    key={task.id} 
+                    task={task} 
+                    onUpdate={refreshData}
+                    onAllTasksCompleted={handleAllTasksCompleted}
+                  />
                 ))
               ) : (
                 <div className="text-center py-8 text-slate-500">
@@ -299,6 +349,16 @@ export default function OffboardingDetailPage() {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* 🎯 NEW: Exit Survey Modal */}
+      {showExitSurvey && offboarding && (
+        <ExitSurveyModal
+          offboardingId={offboarding.id}
+          employeeName={offboarding.employee_name}
+          organizationId={offboarding.organization_id}
+          onComplete={handleSurveyComplete}
+        />
+      )}
     </div>
   )
 }
