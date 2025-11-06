@@ -201,6 +201,8 @@ export default function TaskCard({
           // 🎯 NEW: Create survey token and send email to employee
           try {
             console.log('🎯 Creating survey token and sending email...')
+            console.log('📧 Employee email:', offboardingData.employee_email)
+            console.log('📧 Employee name:', offboardingData.employee_name)
             
             // Create survey token
             const tokenResponse = await fetch('/api/exit-survey/create-token', {
@@ -215,12 +217,17 @@ export default function TaskCard({
             })
 
             const tokenData = await tokenResponse.json()
+            console.log('🔑 Token response:', tokenData)
 
             if (tokenData.success) {
-              // Send exit survey invitation email to employee
-              const surveyLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://offboarding.vercel.app'}/exit-survey/${tokenData.token}`
+              // Get app URL (use window.location if env var not available)
+              const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin
+              const surveyLink = `${appUrl}/exit-survey/${tokenData.token}`
               
-              await fetch('/api/send-email', {
+              console.log('🔗 Survey link:', surveyLink)
+              
+              // Send exit survey invitation email to employee
+              const emailResponse = await fetch('/api/send-email', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -233,17 +240,40 @@ export default function TaskCard({
                 }),
               })
 
-              console.log('✅ Exit survey email sent to:', offboardingData.employee_email)
-              
+              const emailResult = await emailResponse.json()
+              console.log('📧 Email response:', emailResult)
+
+              if (emailResult.success) {
+                console.log('✅ Exit survey email sent to:', offboardingData.employee_email)
+                
+                toast({
+                  title: '📧 Survey Sent!',
+                  description: `Exit survey email sent to ${offboardingData.employee_name}`,
+                  duration: 4000,
+                })
+              } else {
+                console.error('❌ Email failed:', emailResult)
+                toast({
+                  title: 'Email Warning',
+                  description: 'Survey created but email may have failed. Check console.',
+                  variant: 'destructive',
+                })
+              }
+            } else {
+              console.error('❌ Token creation failed:', tokenData)
               toast({
-                title: '📧 Survey Sent!',
-                description: `Exit survey email sent to ${offboardingData.employee_name}`,
-                duration: 4000,
+                title: 'Warning',
+                description: 'Could not create survey link. Check console.',
+                variant: 'destructive',
               })
             }
           } catch (emailError) {
-            console.error('Failed to send exit survey email:', emailError)
-            // Don't fail the offboarding if email fails
+            console.error('❌ Failed to send exit survey email:', emailError)
+            toast({
+              title: 'Error',
+              description: 'Failed to send survey email. Check console for details.',
+              variant: 'destructive',
+            })
           }
         } else {
           toast({
@@ -420,4 +450,4 @@ export default function TaskCard({
       </CardContent>
     </Card>
   )
-}
+                  }
