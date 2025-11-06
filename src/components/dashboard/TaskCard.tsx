@@ -137,6 +137,8 @@ export default function TaskCard({
         )
 
         if (allTasksCompleted) {
+          console.log('🎉 All tasks completed! Updating offboarding status...')
+          
           // Update offboarding status to completed
           await supabase
             .from('offboardings')
@@ -145,6 +147,8 @@ export default function TaskCard({
               completed_at: completedAt.toISOString()
             })
             .eq('id', task.offboarding_id)
+
+          console.log('✅ Offboarding status updated to completed')
 
           // Send offboarding completed email
           try {
@@ -195,8 +199,12 @@ export default function TaskCard({
           })
 
           // 🎯 NEW: Trigger exit survey modal in parent component
+          console.log('🎯 Checking if onAllTasksCompleted callback exists:', !!onAllTasksCompleted)
           if (onAllTasksCompleted) {
+            console.log('🎯 Calling onAllTasksCompleted callback with data:', offboardingData)
             onAllTasksCompleted(offboardingData)
+          } else {
+            console.error('⚠️ onAllTasksCompleted callback is undefined!')
           }
         } else {
           toast({
