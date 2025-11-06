@@ -470,79 +470,6 @@ export async function sendTeamInvitationEmail({
             .container { max-width: 600px; margin: 0 auto; padding: 20px; }
             .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }
             .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
-            .button { display: inline-block; background: #9333ea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: 600; font-size: 16px; }
-            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
-            .highlight-box { background: #faf5ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #9333ea; }
-            .info-box { background: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0; font-size: 28px;">✨ We Value Your Feedback</h1>
-            </div>
-            <div class="content">
-              <p style="font-size: 16px;">Hi <strong>${employeeName}</strong>,</p>
-              
-              <p>Thank you for your contributions to <strong>${organizationName}</strong>. As part of our offboarding process, we'd appreciate your honest feedback to help us improve.</p>
-              
-              <div class="highlight-box">
-                <p style="margin: 0; color: #581c87;">
-                  <strong>📝 Quick Survey</strong><br>
-                  This brief survey takes just <strong>2 minutes</strong> and your responses will be kept confidential. Your insights will help us create a better workplace for future team members.
-                </p>
-              </div>
-              
-              <p>The survey covers:</p>
-              <ul style="color: #475569;">
-                <li>Primary reason for leaving</li>
-                <li>Likelihood to recommend the company</li>
-                <li>Possibility of returning in the future</li>
-                <li>Suggestions for improvement</li>
-              </ul>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${surveyLink}" class="button">Complete Exit Survey</a>
-              </div>
-              
-              <div class="info-box">
-                <p style="margin: 0; color: #1e40af; font-size: 14px;">
-                  <strong>⏰ This link will expire in ${expiresInDays} days.</strong><br>
-                  Your feedback is anonymous and will only be used to improve our workplace.
-                </p>
-              </div>
-              
-              <p style="margin-top: 30px;">We wish you all the best in your future endeavors!</p>
-              
-              <p style="margin-top: 20px; font-size: 15px;">
-                Best regards,<br>
-                <strong>The ${organizationName} Team</strong>
-              </p>
-            </div>
-            <div class="footer">
-              <p>© 2024 OffboardPro. All rights reserved.</p>
-              <p style="margin-top: 10px;">
-                If you have any questions, please contact your HR department.
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    })
-
-    if (!result.success) {
-      console.error('Error sending exit survey invitation email:', result.error)
-      return result
-    }
-
-    console.log('✅ Exit survey invitation email sent to:', to)
-    return result
-  } catch (error) {
-    console.error('Error sending exit survey invitation email:', error)
-    return { success: false, error }
-  }
-}
             .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: 600; }
             .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
             .role-badge { display: inline-block; background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 600; }
@@ -715,8 +642,73 @@ export async function sendExitSurveyInvitationEmail({
         <!DOCTYPE html>
         <html>
         <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }
-            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
+          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
+              <h1 style="margin: 0; font-size: 28px;">✨ We Value Your Feedback</h1>
+            </div>
+            <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
+              <p style="font-size: 16px;">Hi <strong>${employeeName}</strong>,</p>
+              
+              <p>Thank you for your contributions to <strong>${organizationName}</strong>. As part of our offboarding process, we'd appreciate your honest feedback to help us improve.</p>
+              
+              <div style="background: #faf5ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #9333ea;">
+                <p style="margin: 0; color: #581c87;">
+                  <strong>📝 Quick Survey</strong><br>
+                  This brief survey takes just <strong>2 minutes</strong> and your responses will be kept confidential. Your insights will help us create a better workplace for future team members.
+                </p>
+              </div>
+              
+              <p>The survey covers:</p>
+              <ul style="color: #475569;">
+                <li>Primary reason for leaving</li>
+                <li>Likelihood to recommend the company</li>
+                <li>Possibility of returning in the future</li>
+                <li>Suggestions for improvement</li>
+              </ul>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${surveyLink}" style="display: inline-block; background: #9333ea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">Complete Exit Survey</a>
+              </div>
+              
+              <div style="background: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0;">
+                <p style="margin: 0; color: #1e40af; font-size: 14px;">
+                  <strong>⏰ This link will expire in ${expiresInDays} days.</strong><br>
+                  Your feedback is anonymous and will only be used to improve our workplace.
+                </p>
+              </div>
+              
+              <p style="margin-top: 30px;">We wish you all the best in your future endeavors!</p>
+              
+              <p style="margin-top: 20px; font-size: 15px;">
+                Best regards,<br>
+                <strong>The ${organizationName} Team</strong>
+              </p>
+            </div>
+            <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+              <p>© 2024 OffboardPro. All rights reserved.</p>
+              <p style="margin-top: 10px;">
+                If you have any questions, please contact your HR department.
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+    })
+
+    if (!result.success) {
+      console.error('Error sending exit survey invitation email:', result.error)
+      return result
+    }
+
+    console.log('✅ Exit survey invitation email sent to:', to)
+    return result
+  } catch (error) {
+    console.error('Error sending exit survey invitation email:', error)
+    return { success: false, error }
+  }
+}
