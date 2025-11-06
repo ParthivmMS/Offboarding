@@ -94,18 +94,25 @@ export default function OffboardingDetailPage() {
 
   // 🎯 NEW: Handle when all tasks are completed
   const handleAllTasksCompleted = async (completedOffboardingData: any) => {
+    console.log('🎯 handleAllTasksCompleted called!', completedOffboardingData)
+    
     // Check if exit survey already exists for this offboarding
     const supabase = createClient()
-    const { data: existingSurvey } = await supabase
+    const { data: existingSurvey, error: surveyError } = await supabase
       .from('exit_surveys')
       .select('id')
       .eq('offboarding_id', params.id)
       .single()
 
+    console.log('📊 Existing survey check:', { existingSurvey, surveyError })
+
     // Only show survey if one hasn't been submitted yet
     if (!existingSurvey) {
+      console.log('✅ No existing survey found, showing modal...')
       setShowExitSurvey(true)
+      console.log('✅ setShowExitSurvey(true) called')
     } else {
+      console.log('⚠️ Survey already exists, not showing modal')
       toast({
         title: '✅ Exit Survey Already Submitted',
         description: 'AI insights are being generated from your feedback!',
@@ -351,14 +358,22 @@ export default function OffboardingDetailPage() {
       </Card>
 
       {/* 🎯 NEW: Exit Survey Modal */}
-      {showExitSurvey && offboarding && (
-        <ExitSurveyModal
-          offboardingId={offboarding.id}
-          employeeName={offboarding.employee_name}
-          organizationId={offboarding.organization_id}
-          onComplete={handleSurveyComplete}
-        />
-      )}
+      {(() => {
+        console.log('🔍 Modal render check:', { 
+          showExitSurvey, 
+          offboarding: !!offboarding,
+          offboardingId: offboarding?.id,
+          organizationId: offboarding?.organization_id 
+        })
+        return showExitSurvey && offboarding ? (
+          <ExitSurveyModal
+            offboardingId={offboarding.id}
+            employeeName={offboarding.employee_name}
+            organizationId={offboarding.organization_id}
+            onComplete={handleSurveyComplete}
+          />
+        ) : null
+      })()}
     </div>
   )
 }
