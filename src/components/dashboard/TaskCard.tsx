@@ -198,13 +198,52 @@ export default function TaskCard({
             duration: 5000,
           })
 
-          // 🎯 NEW: Trigger exit survey modal in parent component
-          console.log('🎯 Checking if onAllTasksCompleted callback exists:', !!onAllTasksCompleted)
-          if (onAllTasksCompleted) {
-            console.log('🎯 Calling onAllTasksCompleted callback with data:', offboardingData)
-            onAllTasksCompleted(offboardingData)
-          } else {
-            console.error('⚠️ onAllTasksCompleted callback is undefined!')
+          // 🎯 NEW: Create survey token and send email to employee
+          try {
+            console.log('🎯 Creating survey token and sending email...')
+            
+            // Create survey token
+            const tokenResponse = await fetch('/api/exit-survey/create-token', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                offboardingId: task.offboarding_id,
+                organizationId: offboardingData.organization_id,
+                employeeEmail: offboardingData.employee_email,
+                employeeName: offboardingData.employee_name,
+              }),
+            })
+
+            const tokenData = await tokenResponse.json()
+
+            if (tokenData.success) {
+              // Send exit survey invitation email to employee
+              const surveyLink = `${process.env.NEXT_PUBLIC_APP_URL || 'https://offboarding.vercel.app'}/exit-survey/${tokenData.token}`
+              
+              await fetch('/api/send-email', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'exit_survey_invitation',
+                  to: [offboardingData.employee_email],
+                  employeeName: offboardingData.employee_name,
+                  organizationName: 'Your Company', // TODO: Get from org table
+                  surveyLink,
+                  expiresInDays: 7,
+                }),
+              })
+
+              console.log('✅ Exit survey email sent to:', offboardingData.employee_email)
+              
+              toast({
+                title: '📧 Survey Sent!',
+                description: `Exit survey email sent to ${offboardingData.employee_name}`,
+                duration: 4000,
+              })
+            }
+          } catch (emailError) {
+            console.error('Failed to send exit survey email:', emailError)
+            // Don't fail the offboarding if email fails
           }
         } else {
           toast({
