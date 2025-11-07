@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +10,6 @@ import { Loader2, Sparkles, CheckCircle, AlertCircle } from 'lucide-react'
 
 export default function ExitSurveyPage() {
   const params = useParams()
-  const router = useRouter()
   const token = params.token as string
 
   const [loading, setLoading] = useState(true)
@@ -92,7 +91,6 @@ export default function ExitSurveyPage() {
     }
   }
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50">
@@ -104,7 +102,6 @@ export default function ExitSurveyPage() {
     )
   }
 
-  // Error state
   if (!validToken) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-6">
@@ -113,14 +110,13 @@ export default function ExitSurveyPage() {
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Invalid Survey Link</h1>
           <p className="text-slate-600 mb-6">{error}</p>
           <p className="text-sm text-slate-500">
-            This link may have expired or already been used. Please contact your HR department if you need assistance.
+            This link may have expired or already been used. Please contact your HR department.
           </p>
         </div>
       </div>
     )
   }
 
-  // Success state
   if (submitted) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-pink-50 p-6">
@@ -144,12 +140,10 @@ export default function ExitSurveyPage() {
     )
   }
 
-  // Survey form
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 py-12 px-6">
       <div className="max-w-3xl mx-auto">
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          {/* Header */}
           <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-8 text-white">
             <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
               <Sparkles className="w-8 h-8" />
@@ -160,7 +154,6 @@ export default function ExitSurveyPage() {
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="p-8">
             {error && (
               <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
@@ -169,7 +162,6 @@ export default function ExitSurveyPage() {
             )}
 
             <div className="space-y-8">
-              {/* Question 1: Departure Reason */}
               <div className="space-y-3">
                 <Label className="text-lg font-semibold text-slate-900">
                   1. What's the primary reason for leaving? *
@@ -200,7 +192,6 @@ export default function ExitSurveyPage() {
                 </RadioGroup>
               </div>
 
-              {/* Question 2: NPS */}
               <div className="space-y-3">
                 <Label className="text-lg font-semibold text-slate-900">
                   2. How likely would you recommend this company? (0-10) *
@@ -224,7 +215,6 @@ export default function ExitSurveyPage() {
                 </p>
               </div>
 
-              {/* Question 3: Would Return */}
               <div className="space-y-3">
                 <Label className="text-lg font-semibold text-slate-900">
                   3. Would you consider returning in the future? *
@@ -260,7 +250,6 @@ export default function ExitSurveyPage() {
                 )}
               </div>
 
-              {/* Question 4: Suggestions */}
               <div className="space-y-3">
                 <Label className="text-lg font-semibold text-slate-900">
                   4. What could we improve? (Optional)
@@ -274,7 +263,6 @@ export default function ExitSurveyPage() {
               </div>
             </div>
 
-            {/* Submit Button */}
             <div className="mt-8 pt-6 border-t">
               <Button
                 type="submit"
@@ -300,7 +288,6 @@ export default function ExitSurveyPage() {
           </form>
         </div>
 
-        {/* Footer */}
         <p className="text-center text-slate-500 text-sm mt-6">
           Powered by OffboardPro • © 2024
         </p>
