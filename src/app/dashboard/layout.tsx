@@ -12,7 +12,8 @@ import {
   Users,
   Menu,
   X,
-  Sparkles
+  Sparkles,
+  Shield
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
@@ -33,7 +34,8 @@ export default function DashboardLayout({
     { name: 'Offboardings', href: '/dashboard/offboardings', icon: FileText },
     { name: 'My Tasks', href: '/dashboard/tasks', icon: CheckSquare },
     { name: 'Templates', href: '/dashboard/templates', icon: FileText },
-    { name: 'AI Insights', href: '/dashboard/insights', icon: Sparkles },
+    { name: 'AI Insights', href: '/dashboard/insights', icon: Sparkles, highlight: true },
+    { name: 'Security', href: '/dashboard/security', icon: Shield, highlight: true },
     { name: 'Team', href: '/dashboard/team', icon: Users },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ]
@@ -99,28 +101,50 @@ export default function DashboardLayout({
           <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
             {navigation.map((item) => {
               const Icon = item.icon
-              const isAIInsights = item.name === 'AI Insights'
+              const isHighlight = item.highlight
+              const active = isActive(item.href)
+              
+              // Different colors for special items
+              let activeClasses = 'bg-blue-50 text-blue-600'
+              if (item.name === 'AI Insights' && active) {
+                activeClasses = 'bg-purple-50 text-purple-600'
+              } else if (item.name === 'Security' && active) {
+                activeClasses = 'bg-red-50 text-red-600'
+              }
+              
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`
-                    flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
+                    flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative
                     ${
-                      isActive(item.href)
-                        ? isAIInsights 
-                          ? 'bg-purple-50 text-purple-600 font-medium'
-                          : 'bg-blue-50 text-blue-600 font-medium'
+                      active
+                        ? `${activeClasses} font-medium`
                         : 'text-gray-700 hover:bg-gray-100'
                     }
                   `}
                 >
-                  <Icon className={`w-5 h-5 ${isAIInsights && isActive(item.href) ? 'text-purple-600' : ''}`} />
+                  <Icon className={`w-5 h-5 ${
+                    item.name === 'AI Insights' && active ? 'text-purple-600' :
+                    item.name === 'Security' && active ? 'text-red-600' : ''
+                  }`} />
                   {item.name}
-                  {isAIInsights && (
+                  {isHighlight && (
                     <span className="ml-auto">
-                      <Sparkles className="w-3 h-3 text-purple-400" />
+                      {item.name === 'AI Insights' ? (
+                        <Sparkles className="w-3 h-3 text-purple-400" />
+                      ) : item.name === 'Security' ? (
+                        <Shield className="w-3 h-3 text-red-400" />
+                      ) : null}
+                    </span>
+                  )}
+                  {item.name === 'Security' && !active && (
+                    <span className="ml-auto">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-700">
+                        NEW
+                      </span>
                     </span>
                   )}
                 </Link>
