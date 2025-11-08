@@ -1,32 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createBrowserClient } from '@/lib/supabase/client'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
   try {
-    // Create Supabase client with cookies for server-side auth
     const cookieStore = cookies()
-    const supabase = createBrowserClient()
 
-    // Get current user from cookie
+    // Create Supabase client with proper server-side auth
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+        },
+      }
+    )
+
+    // Get current user
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     
     if (authError || !user) {
       console.error('Auth error:', authError)
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized - Please log in' }, { status: 401 })
     }
 
     // Get user's organization
-    const { data: userData } = await supabase
+    const { data: userData, error: userError } = await supabase
       .from('users')
       .select('current_organization_id')
       .eq('id', user.id)
       .single()
 
-    if (!userData?.current_organization_id) {
+    if (userError || !userData?.current_organization_id) {
+      console.error('User data error:', userError)
       return NextResponse.json({ error: 'No organization found' }, { status: 400 })
     }
 
@@ -37,7 +46,10 @@ export async function POST(request: NextRequest) {
       .eq('organization_id', userData.current_organization_id)
       .eq('status', 'active')
 
-    if (fetchError) throw fetchError
+    if (fetchError) {
+      console.error('Fetch error:', fetchError)
+      throw fetchError
+    }
 
     if (!activeConnections || activeConnections.length === 0) {
       return NextResponse.json({
@@ -60,7 +72,10 @@ export async function POST(request: NextRequest) {
       .eq('organization_id', userData.current_organization_id)
       .eq('status', 'active')
 
-    if (updateError) throw updateError
+    if (updateError) {
+      console.error('Update error:', updateError)
+      throw updateError
+    }
 
     // Create revocation logs
     const logs = activeConnections.map(conn => ({
@@ -76,7 +91,14 @@ export async function POST(request: NextRequest) {
       performed_by: user.id,
     }))
 
-    await supabase.from('revocation_logs').insert(logs)
+    const { error: logsError } = await supabase
+      .from('revocation_logs')
+      .insert(logs)
+
+    if (logsError) {
+      console.error('Logs error:', logsError)
+      // Don't fail the whole operation if logs fail
+    }
 
     // Send security alert email
     try {
@@ -93,6 +115,7 @@ export async function POST(request: NextRequest) {
       })
     } catch (emailError) {
       console.error('Failed to send security alert:', emailError)
+      // Don't fail the operation if email fails
     }
 
     return NextResponse.json({
