@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import TaskCard from '@/components/dashboard/TaskCard'
 import ExitSurveyModal from '@/components/dashboard/ExitSurveyModal'
-import { ArrowLeft, User, Calendar, Briefcase, Mail, CheckCircle, Clock, AlertCircle } from 'lucide-react'
+import { ArrowLeft, User, Calendar, Briefcase, Mail, CheckCircle, Clock, AlertCircle, Shield } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 export default function OffboardingDetailPage() {
@@ -20,7 +21,7 @@ export default function OffboardingDetailPage() {
   const [loading, setLoading] = useState(true)
   const [offboarding, setOffboarding] = useState<any>(null)
   const [tasks, setTasks] = useState<any[]>([])
-  const [showExitSurvey, setShowExitSurvey] = useState(false) // NEW: Exit survey state
+  const [showExitSurvey, setShowExitSurvey] = useState(false)
 
   useEffect(() => {
     loadOffboarding()
@@ -92,27 +93,17 @@ export default function OffboardingDetailPage() {
     loadOffboarding()
   }
 
-  // 🎯 NEW: Handle when all tasks are completed
   const handleAllTasksCompleted = async (completedOffboardingData: any) => {
-    console.log('🎯 handleAllTasksCompleted called!', completedOffboardingData)
-    
-    // Check if exit survey already exists for this offboarding
     const supabase = createClient()
-    const { data: existingSurvey, error: surveyError } = await supabase
+    const { data: existingSurvey } = await supabase
       .from('exit_surveys')
       .select('id')
       .eq('offboarding_id', params.id)
       .single()
 
-    console.log('📊 Existing survey check:', { existingSurvey, surveyError })
-
-    // Only show survey if one hasn't been submitted yet
     if (!existingSurvey) {
-      console.log('✅ No existing survey found, showing modal...')
       setShowExitSurvey(true)
-      console.log('✅ setShowExitSurvey(true) called')
     } else {
-      console.log('⚠️ Survey already exists, not showing modal')
       toast({
         title: '✅ Exit Survey Already Submitted',
         description: 'AI insights are being generated from your feedback!',
@@ -120,7 +111,6 @@ export default function OffboardingDetailPage() {
     }
   }
 
-  // 🎯 NEW: Handle exit survey completion
   const handleSurveyComplete = () => {
     setShowExitSurvey(false)
     toast({
@@ -162,21 +152,31 @@ export default function OffboardingDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-start gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/offboardings')}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold text-slate-900">{offboarding.employee_name}</h1>
-            <Badge className={statusColors[offboarding.status]}>
-              {offboarding.status.replace('_', ' ')}
-            </Badge>
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-4">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/offboardings')}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-3xl font-bold text-slate-900">{offboarding.employee_name}</h1>
+              <Badge className={statusColors[offboarding.status]}>
+                {offboarding.status.replace('_', ' ')}
+              </Badge>
+            </div>
+            <p className="text-slate-600">{offboarding.role} • {offboarding.department}</p>
           </div>
-          <p className="text-slate-600">{offboarding.role} • {offboarding.department}</p>
         </div>
+        
+        {/* Security Scan Button */}
+        <Link href={`/dashboard/offboardings/${params.id}/scan-apps`}>
+          <Button variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
+            <Shield className="w-4 h-4 mr-2" />
+            Scan Security Apps
+          </Button>
+        </Link>
       </div>
 
       {/* Progress Overview */}
@@ -357,23 +357,15 @@ export default function OffboardingDetailPage() {
         </CardContent>
       </Card>
 
-      {/* 🎯 NEW: Exit Survey Modal */}
-      {(() => {
-        console.log('🔍 Modal render check:', { 
-          showExitSurvey, 
-          offboarding: !!offboarding,
-          offboardingId: offboarding?.id,
-          organizationId: offboarding?.organization_id 
-        })
-        return showExitSurvey && offboarding ? (
-          <ExitSurveyModal
-            offboardingId={offboarding.id}
-            employeeName={offboarding.employee_name}
-            organizationId={offboarding.organization_id}
-            onComplete={handleSurveyComplete}
-          />
-        ) : null
-      })()}
+      {/* Exit Survey Modal */}
+      {showExitSurvey && offboarding && (
+        <ExitSurveyModal
+          offboardingId={offboarding.id}
+          employeeName={offboarding.employee_name}
+          organizationId={offboarding.organization_id}
+          onComplete={handleSurveyComplete}
+        />
+      )}
     </div>
   )
-                  }
+}
