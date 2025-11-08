@@ -9,7 +9,10 @@ import {
   ListTodo, 
   FileText,
   Settings,
-  LogOut
+  LogOut,
+  Shield,
+  Sparkles,
+  UserCog
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -23,6 +26,9 @@ const navigation = [
   { name: 'Offboardings', href: '/dashboard/offboardings', icon: Users },
   { name: 'My Tasks', href: '/dashboard/tasks', icon: ListTodo },
   { name: 'Templates', href: '/dashboard/templates', icon: ClipboardList },
+  { name: 'Team', href: '/dashboard/team', icon: UserCog },
+  { name: 'Insights', href: '/dashboard/insights', icon: Sparkles },
+  { name: 'Security', href: '/dashboard/security', icon: Shield },
   { name: 'Reports', href: '/dashboard/reports', icon: FileText },
   { name: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
