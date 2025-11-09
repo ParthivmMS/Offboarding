@@ -114,6 +114,134 @@ interface ExitSurveyInvitationEmailParams {
   expiresInDays: number
 }
 
+// 🎨 EMAIL TEMPLATE STYLES - Consistent across all emails
+const EMAIL_STYLES = `
+  <style>
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      line-height: 1.6; 
+      color: #1e293b; 
+      margin: 0; 
+      padding: 0;
+      background-color: #f8fafc;
+    }
+    .email-container { 
+      max-width: 600px; 
+      margin: 40px auto; 
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+    }
+    .header { 
+      background: linear-gradient(135deg, #2563eb 0%, #9333ea 100%);
+      color: white; 
+      padding: 40px 30px; 
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .content { 
+      padding: 40px 30px;
+    }
+    .info-card {
+      background: #f8fafc;
+      padding: 24px;
+      border-radius: 8px;
+      margin: 24px 0;
+      border-left: 4px solid #2563eb;
+    }
+    .info-card h3 {
+      margin: 0 0 12px 0;
+      color: #1e293b;
+      font-size: 20px;
+      font-weight: 600;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      margin: 8px 0;
+      padding: 8px 0;
+    }
+    .info-label {
+      color: #64748b;
+      font-weight: 500;
+    }
+    .info-value {
+      color: #1e293b;
+      font-weight: 600;
+      text-align: right;
+    }
+    .alert-box {
+      background: #fef3c7;
+      padding: 16px 20px;
+      border-radius: 8px;
+      margin: 24px 0;
+      border-left: 4px solid #f59e0b;
+    }
+    .alert-box p {
+      margin: 0;
+      color: #92400e;
+      font-weight: 500;
+    }
+    .button {
+      display: inline-block;
+      background: linear-gradient(135deg, #2563eb 0%, #9333ea 100%);
+      color: white !important;
+      padding: 14px 32px;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      margin: 20px 0;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+    .button:hover {
+      transform: translateY(-2px);
+    }
+    .footer {
+      background: #f8fafc;
+      padding: 24px 30px;
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+      border-top: 1px solid #e2e8f0;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      margin: 4px 0;
+    }
+    .badge-primary { background: #dbeafe; color: #1e40af; }
+    .badge-success { background: #dcfce7; color: #166534; }
+    .badge-warning { background: #fef3c7; color: #92400e; }
+    .badge-danger { background: #fee2e2; color: #991b1b; }
+    
+    @media only screen and (max-width: 600px) {
+      .email-container { margin: 0; border-radius: 0; }
+      .header { padding: 30px 20px; }
+      .content { padding: 30px 20px; }
+      .info-row { flex-direction: column; }
+      .info-value { text-align: left; margin-top: 4px; }
+    }
+  </style>
+`
+
+// 🎨 LOGO SVG - Consistent branding
+const LOGO_SVG = `
+  <svg width="40" height="40" viewBox="0 0 40 40" style="display: inline-block; vertical-align: middle; margin-right: 12px;">
+    <rect width="40" height="40" rx="8" fill="white" opacity="0.2"/>
+    <path d="M12 20L18 26L28 14" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </svg>
+`
+
 export async function sendOffboardingCreatedEmail({
   departments,
   employeeName,
@@ -146,49 +274,84 @@ export async function sendOffboardingCreatedEmail({
       return { success: false, error: 'No valid recipients' }
     }
 
+    const formattedDate = new Date(lastWorkingDay).toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+
     const result = await sendBrevoEmail({
       to: recipients,
-      subject: `New Offboarding: ${employeeName}`,
+      subject: `🚀 New Offboarding Started: ${employeeName}`,
       htmlContent: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">🚀 New Offboarding Started</h2>
-          
-          <p>A new employee offboarding has been initiated:</p>
-          
-          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
-            <h3 style="margin-top: 0; color: #1e293b;">${employeeName}</h3>
-            <p><strong>Department:</strong> ${employeeDepartment}</p>
-            <p><strong>Last Working Day:</strong> ${new Date(lastWorkingDay).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}</p>
-            <p><strong>Total Tasks:</strong> ${taskCount}</p>
-            <p><strong>Created by:</strong> ${createdBy}</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${EMAIL_STYLES}
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="header">
+              ${LOGO_SVG}
+              <h1>New Offboarding Started</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">
+                A new employee offboarding has been initiated and requires your attention.
+              </p>
+              
+              <div class="info-card">
+                <h3>${employeeName}</h3>
+                <div style="border-top: 1px solid #e2e8f0; margin: 12px 0;"></div>
+                <div class="info-row">
+                  <span class="info-label">Department</span>
+                  <span class="info-value">${employeeDepartment}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Last Working Day</span>
+                  <span class="info-value">${formattedDate}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Total Tasks</span>
+                  <span class="info-value"><span class="badge badge-primary">${taskCount} tasks</span></span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Created By</span>
+                  <span class="info-value">${createdBy}</span>
+                </div>
+              </div>
+              
+              <div class="alert-box">
+                <p>
+                  <strong>⚡ Action Required:</strong> You have tasks assigned to your department. 
+                  Please review and complete them before the due dates.
+                </p>
+              </div>
+              
+              <div style="text-align: center;">
+                <a href="${appUrl}/dashboard/offboardings/${offboardingId}" class="button">
+                  View Tasks & Details →
+                </a>
+              </div>
+              
+              <p style="margin-top: 32px; color: #64748b; font-size: 14px;">
+                Complete your assigned tasks on time to ensure a smooth offboarding process.
+              </p>
+            </div>
+            <div class="footer">
+              <p style="margin: 0;">This is an automated notification from <strong>OffboardPro</strong></p>
+              <p style="margin: 8px 0 0 0;">Secure Employee Offboarding Platform</p>
+            </div>
           </div>
-          
-          <div style="background: #fef3c7; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; color: #92400e;">
-              <strong>⚡ Action Required:</strong> You have tasks assigned to your department. 
-              Please review and complete them before the due dates.
-            </p>
-          </div>
-          
-          <a href="${appUrl}/dashboard/offboardings/${offboardingId}" 
-             style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 10px;">
-            View Tasks & Details
-          </a>
-          
-          <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
-            This is an automated notification from OffboardPro.
-          </p>
-        </div>
+        </body>
+        </html>
       `,
     })
     
-    console.log('Offboarding created email sent to:', recipients)
+    console.log('✅ Offboarding created email sent to:', recipients)
     return result
   } catch (error) {
     console.error('Failed to send offboarding created email:', error)
@@ -214,48 +377,89 @@ export async function sendTaskAssignedEmail({
       return { success: false, error: 'No recipients' }
     }
 
+    const formattedDate = new Date(dueDate).toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+
+    const daysUntilDue = Math.ceil((new Date(dueDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+    const urgencyBadge = daysUntilDue <= 3 
+      ? `<span class="badge badge-danger">Due in ${daysUntilDue} days</span>`
+      : `<span class="badge badge-warning">Due in ${daysUntilDue} days</span>`
+
     const result = await sendBrevoEmail({
       to,
-      subject: `New Task Assigned: ${taskName}`,
+      subject: `📋 New Task Assigned: ${taskName}`,
       htmlContent: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">📋 New Task Assigned</h2>
-          
-          <p>Your department has been assigned a new offboarding task:</p>
-          
-          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
-            <h3 style="margin-top: 0; color: #1e293b;">${taskName}</h3>
-            <p><strong>Employee:</strong> ${employeeName}</p>
-            <p><strong>Department:</strong> ${department}</p>
-            <p><strong>Assigned to:</strong> ${assignedDepartment} Department</p>
-            <p><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}</p>
-            ${instructions ? `
-              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-                <strong>Instructions:</strong>
-                <p style="white-space: pre-line; margin-top: 5px; color: #475569;">${instructions}</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${EMAIL_STYLES}
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="header">
+              ${LOGO_SVG}
+              <h1>New Task Assigned</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">
+                Your department has been assigned a new offboarding task.
+              </p>
+              
+              <div class="info-card">
+                <h3>${taskName}</h3>
+                ${urgencyBadge}
+                <div style="border-top: 1px solid #e2e8f0; margin: 12px 0;"></div>
+                <div class="info-row">
+                  <span class="info-label">Employee</span>
+                  <span class="info-value">${employeeName}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Department</span>
+                  <span class="info-value">${department}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Assigned To</span>
+                  <span class="info-value">${assignedDepartment}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Due Date</span>
+                  <span class="info-value" style="color: ${daysUntilDue <= 3 ? '#dc2626' : '#f59e0b'}; font-weight: 700;">${formattedDate}</span>
+                </div>
+                ${instructions ? `
+                  <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #475569;">📝 Instructions:</p>
+                    <p style="white-space: pre-line; margin: 0; color: #64748b; line-height: 1.6;">${instructions}</p>
+                  </div>
+                ` : ''}
               </div>
-            ` : ''}
+              
+              <div style="text-align: center;">
+                <a href="${appUrl}/dashboard/offboardings/${offboardingId}" class="button">
+                  View Task Details →
+                </a>
+              </div>
+              
+              <p style="margin-top: 32px; color: #64748b; font-size: 14px; text-align: center;">
+                Complete this task before the due date to stay on track.
+              </p>
+            </div>
+            <div class="footer">
+              <p style="margin: 0;">This is an automated notification from <strong>OffboardPro</strong></p>
+              <p style="margin: 8px 0 0 0;">Secure Employee Offboarding Platform</p>
+            </div>
           </div>
-          
-          <a href="${appUrl}/dashboard/offboardings/${offboardingId}" 
-             style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 6px; font-weight: 600;">
-            View Task Details
-          </a>
-          
-          <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
-            This is an automated notification from OffboardPro.
-          </p>
-        </div>
+        </body>
+        </html>
       `,
     })
     
-    console.log('Task assigned email sent to:', to)
+    console.log('✅ Task assigned email sent to:', to)
     return result
   } catch (error) {
     console.error('Failed to send task assigned email:', error)
@@ -282,39 +486,81 @@ export async function sendTaskCompletedEmail({
 
     const result = await sendBrevoEmail({
       to,
-      subject: `✓ Task Completed: ${taskName}`,
+      subject: `✅ Task Completed: ${taskName}`,
       htmlContent: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #16a34a;">✓ Task Completed</h2>
-          
-          <p>A task has been completed for the offboarding of <strong>${employeeName}</strong>:</p>
-          
-          <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
-            <h3 style="margin-top: 0; color: #15803d;">${taskName}</h3>
-            <p><strong>Completed by:</strong> ${completedBy}</p>
-            <p><strong>Completed on:</strong> ${completedOn}</p>
-            ${notes ? `
-              <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #bbf7d0;">
-                <strong>Completion Notes:</strong>
-                <p style="white-space: pre-line; margin-top: 5px; color: #166534;">${notes}</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${EMAIL_STYLES}
+          <style>
+            .success-header { 
+              background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
+            }
+            .success-card {
+              background: #f0fdf4;
+              border-left-color: #16a34a;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="header success-header">
+              <svg width="48" height="48" viewBox="0 0 48 48" style="display: block; margin: 0 auto 12px;">
+                <circle cx="24" cy="24" r="22" fill="white" opacity="0.2"/>
+                <path d="M14 24L20 30L34 16" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+              <h1>Task Completed</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">
+                Great news! A task has been completed for the offboarding of <strong>${employeeName}</strong>.
+              </p>
+              
+              <div class="info-card success-card">
+                <h3 style="color: #15803d;">${taskName}</h3>
+                <span class="badge badge-success">✓ Completed</span>
+                <div style="border-top: 1px solid #bbf7d0; margin: 12px 0;"></div>
+                <div class="info-row">
+                  <span class="info-label">Completed By</span>
+                  <span class="info-value">${completedBy}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Completed On</span>
+                  <span class="info-value">${completedOn}</span>
+                </div>
+                ${notes ? `
+                  <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid #bbf7d0;">
+                    <p style="margin: 0 0 8px 0; font-weight: 600; color: #166534;">📝 Completion Notes:</p>
+                    <p style="white-space: pre-line; margin: 0; color: #15803d; line-height: 1.6;">${notes}</p>
+                  </div>
+                ` : ''}
               </div>
-            ` : ''}
+              
+              <div style="background: #dcfce7; padding: 16px 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #16a34a;">
+                <p style="margin: 0; color: #166534; font-weight: 500;">
+                  <strong>🎉 Excellent work!</strong> This brings the team one step closer to completing the offboarding process.
+                </p>
+              </div>
+              
+              <div style="text-align: center;">
+                <a href="${appUrl}/dashboard/offboardings/${offboardingId}" class="button" style="background: linear-gradient(135deg, #16a34a 0%, #059669 100%);">
+                  View Offboarding Progress →
+                </a>
+              </div>
+            </div>
+            <div class="footer">
+              <p style="margin: 0;">This is an automated notification from <strong>OffboardPro</strong></p>
+              <p style="margin: 8px 0 0 0;">Secure Employee Offboarding Platform</p>
+            </div>
           </div>
-          
-          <a href="${appUrl}/dashboard/offboardings/${offboardingId}" 
-             style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 6px; font-weight: 600;">
-            View Offboarding Progress
-          </a>
-          
-          <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
-            This is an automated notification from OffboardPro.
-          </p>
-        </div>
+        </body>
+        </html>
       `,
     })
     
-    console.log('Task completed email sent to:', to)
+    console.log('✅ Task completed email sent to:', to)
     return result
   } catch (error) {
     console.error('Failed to send task completed email:', error)
@@ -342,39 +588,83 @@ export async function sendOffboardingCompletedEmail({
       to,
       subject: `🎉 Offboarding Completed: ${employeeName}`,
       htmlContent: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #16a34a;">🎉 Offboarding Successfully Completed</h2>
-          
-          <p>Great news! The offboarding process has been successfully completed:</p>
-          
-          <div style="background: #f0fdf4; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #16a34a;">
-            <h3 style="margin-top: 0; color: #15803d;">${employeeName}</h3>
-            <p><strong>Department:</strong> ${department}</p>
-            <p><strong>Completed on:</strong> ${completionDate}</p>
-            <p><strong>Total Tasks Completed:</strong> ${totalTasks}</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${EMAIL_STYLES}
+          <style>
+            .celebration-header { 
+              background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
+            }
+            .celebration-icon {
+              font-size: 64px;
+              margin: 0 auto 12px;
+              display: block;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="header celebration-header">
+              <div class="celebration-icon">🎉</div>
+              <h1>Offboarding Complete!</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 18px; margin-bottom: 24px; text-align: center; font-weight: 600; color: #16a34a;">
+                Congratulations! The offboarding process has been successfully completed.
+              </p>
+              
+              <div class="info-card" style="background: #f0fdf4; border-left-color: #16a34a;">
+                <h3 style="color: #15803d;">${employeeName}</h3>
+                <span class="badge badge-success">✓ All Tasks Completed</span>
+                <div style="border-top: 1px solid #bbf7d0; margin: 12px 0;"></div>
+                <div class="info-row">
+                  <span class="info-label">Department</span>
+                  <span class="info-value">${department}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Completed On</span>
+                  <span class="info-value">${completionDate}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Total Tasks</span>
+                  <span class="info-value"><span class="badge badge-success">${totalTasks} tasks</span></span>
+                </div>
+              </div>
+              
+              <div style="background: #dcfce7; padding: 20px; border-radius: 8px; margin: 24px 0; text-align: center;">
+                <p style="margin: 0; color: #166534; font-size: 16px; font-weight: 600;">
+                  ✅ All offboarding tasks have been completed successfully!
+                </p>
+                <p style="margin: 8px 0 0 0; color: #15803d;">
+                  Great teamwork! All departments completed their tasks on time.
+                </p>
+              </div>
+              
+              <div style="text-align: center;">
+                <a href="${appUrl}/dashboard/offboardings/${offboardingId}" class="button" style="background: linear-gradient(135deg, #16a34a 0%, #059669 100%);">
+                  View Summary Report →
+                </a>
+              </div>
+              
+              <p style="margin-top: 32px; color: #64748b; font-size: 14px; text-align: center;">
+                Thank you for ensuring a smooth and secure offboarding process.
+              </p>
+            </div>
+            <div class="footer">
+              <p style="margin: 0;">This is an automated notification from <strong>OffboardPro</strong></p>
+              <p style="margin: 8px 0 0 0;">Secure Employee Offboarding Platform</p>
+            </div>
           </div>
-          
-          <div style="background: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; color: #1e40af;">
-              <strong>✅ All Done!</strong> All offboarding tasks have been completed successfully. 
-              Great work team!
-            </p>
-          </div>
-          
-          <a href="${appUrl}/dashboard/offboardings/${offboardingId}" 
-             style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 6px; font-weight: 600;">
-            View Offboarding Summary
-          </a>
-          
-          <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
-            This is an automated notification from OffboardPro.
-          </p>
-        </div>
+        </body>
+        </html>
       `,
     })
     
-    console.log('Offboarding completed email sent to:', to)
+    console.log('✅ Offboarding completed email sent to:', to)
     return result
   } catch (error) {
     console.error('Failed to send offboarding completed email:', error)
@@ -398,46 +688,84 @@ export async function sendTaskDueReminderEmail({
       return { success: false, error: 'No recipients' }
     }
 
+    const urgencyLevel = daysUntilDue === 0 ? 'DUE TODAY' : daysUntilDue === 1 ? 'Due Tomorrow' : `Due in ${daysUntilDue} days`
+    const urgencyColor = daysUntilDue <= 1 ? '#dc2626' : '#f59e0b'
+
+    const formattedDate = new Date(dueDate).toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    })
+
     const result = await sendBrevoEmail({
       to,
-      subject: `⚠️ Reminder: Task Due ${daysUntilDue === 1 ? 'Tomorrow' : `in ${daysUntilDue} days`}`,
+      subject: `⚠️ ${urgencyLevel}: ${taskName}`,
       htmlContent: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #dc2626;">⚠️ Task Due Soon</h2>
-          
-          <p>This is a reminder that you have a task due ${daysUntilDue === 1 ? 'tomorrow' : `in ${daysUntilDue} days`}:</p>
-          
-          <div style="background: #fef2f2; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #dc2626;">
-            <h3 style="margin-top: 0; color: #991b1b;">${taskName}</h3>
-            <p><strong>Employee:</strong> ${employeeName}</p>
-            <p><strong>Due Date:</strong> ${new Date(dueDate).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            })}</p>
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${EMAIL_STYLES}
+          <style>
+            .urgent-header { 
+              background: linear-gradient(135deg, ${urgencyColor} 0%, ${daysUntilDue <= 1 ? '#991b1b' : '#d97706'} 100%);
+            }
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="header urgent-header">
+              <div style="font-size: 48px; margin-bottom: 8px;">⚠️</div>
+              <h1>Task Due Reminder</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">
+                This is a reminder that you have an important task <strong style="color: ${urgencyColor};">${urgencyLevel.toLowerCase()}</strong>:
+              </p>
+              
+              <div class="info-card" style="background: ${daysUntilDue <= 1 ? '#fef2f2' : '#fef3c7'}; border-left-color: ${urgencyColor};">
+                <h3 style="color: ${daysUntilDue <= 1 ? '#991b1b' : '#92400e'};">${taskName}</h3>
+                <span class="badge" style="background: ${urgencyColor}; color: white;">${urgencyLevel}</span>
+                <div style="border-top: 1px solid ${daysUntilDue <= 1 ? '#fecaca' : '#fde68a'}; margin: 12px 0;"></div>
+                <div class="info-row">
+                  <span class="info-label">Employee</span>
+                  <span class="info-value">${employeeName}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Due Date</span>
+                  <span class="info-value" style="color: ${urgencyColor}; font-weight: 700;">${formattedDate}</span>
+                </div>
+              </div>
+              
+              <div style="background: ${daysUntilDue <= 1 ? '#fee2e2' : '#fef3c7'}; padding: 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid ${urgencyColor};">
+                <p style="margin: 0; color: ${daysUntilDue <= 1 ? '#991b1b' : '#92400e'}; font-weight: 600; font-size: 16px;">
+                  <strong>⏰ Action Required:</strong> Please complete this task ${daysUntilDue === 0 ? 'today' : daysUntilDue === 1 ? 'by tomorrow' : `within ${daysUntilDue} days`} to avoid delays in the offboarding process.
+                </p>
+              </div>
+              
+              <div style="text-align: center;">
+                <a href="${appUrl}/dashboard/offboardings/${offboardingId}" class="button" style="background: linear-gradient(135deg, ${urgencyColor} 0%, ${daysUntilDue <= 1 ? '#991b1b' : '#d97706'} 100%);">
+                  Complete Task Now →
+                </a>
+              </div>
+              
+              <p style="margin-top: 32px; color: #64748b; font-size: 14px; text-align: center;">
+                Timely completion helps ensure smooth transitions and security compliance.
+              </p>
+            </div>
+            <div class="footer">
+              <p style="margin: 0;">This is an automated reminder from <strong>OffboardPro</strong></p>
+              <p style="margin: 8px 0 0 0;">Secure Employee Offboarding Platform</p>
+            </div>
           </div>
-          
-          <div style="background: #fef3c7; padding: 15px; border-radius: 6px; margin: 20px 0;">
-            <p style="margin: 0; color: #92400e;">
-              <strong>⏰ Please Act:</strong> Complete this task before the due date to avoid delays.
-            </p>
-          </div>
-          
-          <a href="${appUrl}/dashboard/offboardings/${offboardingId}" 
-             style="display: inline-block; background: #dc2626; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 6px; font-weight: 600;">
-            Complete Task Now
-          </a>
-          
-          <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
-            This is an automated reminder from OffboardPro.
-          </p>
-        </div>
+        </body>
+        </html>
       `,
     })
     
-    console.log('Task due reminder email sent to:', to)
+    console.log('✅ Task due reminder email sent to:', to)
     return result
   } catch (error) {
     console.error('Failed to send task due reminder email:', error)
@@ -458,56 +786,86 @@ export async function sendTeamInvitationEmail({
       return { success: false, error: 'No recipients' }
     }
 
+    const roleColors: Record<string, string> = {
+      'admin': '#dc2626',
+      'hr_manager': '#9333ea',
+      'it_manager': '#2563eb',
+      'manager': '#059669',
+      'user': '#64748b',
+    }
+    const roleColor = roleColors[role] || '#2563eb'
+
     const result = await sendBrevoEmail({
       to,
-      subject: `You've been invited to join ${organizationName} on OffboardPro`,
+      subject: `🎉 You're invited to join ${organizationName} on OffboardPro`,
       htmlContent: `
         <!DOCTYPE html>
         <html>
         <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${EMAIL_STYLES}
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center; }
-            .content { background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px; }
-            .button { display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: 600; }
-            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
-            .role-badge { display: inline-block; background: #10b981; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: 600; }
-            .info-box { background: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #2563eb; }
+            .invite-header { 
+              background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
+            }
           </style>
         </head>
         <body>
-          <div class="container">
-            <div class="header">
-              <h1 style="margin: 0; font-size: 28px;">🎉 You're Invited!</h1>
+          <div class="email-container">
+            <div class="header invite-header">
+              <div style="font-size: 56px; margin-bottom: 8px;">🎉</div>
+              <h1>You're Invited!</h1>
             </div>
             <div class="content">
-              <p style="font-size: 16px;"><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on OffboardPro.</p>
+              <p style="font-size: 18px; margin-bottom: 24px; text-align: center;">
+                <strong>${inviterName}</strong> has invited you to join<br>
+                <strong style="color: #9333ea; font-size: 20px;">${organizationName}</strong>
+              </p>
               
-              <p>You've been assigned the role: <span class="role-badge">${role}</span></p>
+              <div style="background: #faf5ff; padding: 24px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #9333ea; text-align: center;">
+                <p style="margin: 0 0 12px 0; color: #6b21a8; font-weight: 600;">Your Role:</p>
+                <span class="badge" style="background: ${roleColor}; color: white; font-size: 16px; padding: 8px 20px;">
+                  ${role.replace('_', ' ').toUpperCase()}
+                </span>
+              </div>
               
-              <div class="info-box">
-                <p style="margin: 0; color: #1e40af;">
-                  <strong>📋 What is OffboardPro?</strong><br>
-                  OffboardPro helps teams manage employee offboarding efficiently and securely. Track tasks, ensure compliance, and streamline the entire process.
+              <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #2563eb;">
+                <p style="margin: 0 0 12px 0; color: #1e40af; font-weight: 600;">
+                  📋 What is OffboardPro?
+                </p>
+                <p style="margin: 0; color: #1e3a8a; line-height: 1.6;">
+                  OffboardPro helps teams manage employee offboarding efficiently and securely. Track tasks, ensure compliance, and streamline the entire transition process with AI-powered insights and security scanning.
                 </p>
               </div>
               
-              <p>Click the button below to accept your invitation and create your account:</p>
-              
-              <div style="text-align: center;">
-                <a href="${inviteLink}" class="button">Accept Invitation</a>
+              <div style="background: #fff7ed; padding: 16px 20px; border-radius: 8px; margin: 24px 0; text-align: center;">
+                <p style="margin: 0; color: #9a3412; font-weight: 500;">
+                  <strong>🚀 Key Features:</strong> Task Management • Security Scanner • AI Insights • Exit Surveys
+                </p>
               </div>
               
-              <p style="color: #666; font-size: 14px; margin-top: 30px;">
-                <strong>⏰ This invitation expires in 7 days.</strong><br>
-                If you didn't expect this invitation, you can safely ignore this email.
-              </p>
+              <div style="text-align: center;">
+                <a href="${inviteLink}" class="button" style="background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); font-size: 16px; padding: 16px 40px;">
+                  Accept Invitation & Join →
+                </a>
+              </div>
               
-              <p style="margin-top: 30px; font-size: 15px;">Looking forward to having you on the team!<br><strong>The OffboardPro Team</strong></p>
+              <div style="background: #fef3c7; padding: 16px 20px; border-radius: 8px; margin: 32px 0; text-align: center;">
+                <p style="margin: 0; color: #92400e; font-size: 14px;">
+                  <strong>⏰ This invitation expires in 7 days.</strong><br>
+                  If you didn't expect this invitation, you can safely ignore this email.
+                </p>
+              </div>
+              
+              <p style="margin-top: 32px; text-align: center; font-size: 16px;">
+                Looking forward to having you on the team!<br>
+                <strong style="color: #2563eb;">The OffboardPro Team</strong>
+              </p>
             </div>
             <div class="footer">
-              <p>© 2024 OffboardPro. All rights reserved.</p>
+              <p style="margin: 0;">© 2024 <strong>OffboardPro</strong>. All rights reserved.</p>
+              <p style="margin: 8px 0 0 0;">Secure Employee Offboarding Platform</p>
             </div>
           </div>
         </body>
@@ -520,7 +878,7 @@ export async function sendTeamInvitationEmail({
       return result
     }
 
-    console.log('✅ Team invitation email sent successfully')
+    console.log('✅ Team invitation email sent successfully to:', to)
     return result
   } catch (error) {
     console.error('Error sending team invitation email:', error)
@@ -543,77 +901,133 @@ export async function sendChurnAlertEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    const priorityColors = {
-      critical: { bg: '#fee2e2', text: '#991b1b', border: '#dc2626' },
-      high: { bg: '#fed7aa', text: '#9a3412', border: '#f97316' },
-      medium: { bg: '#fef3c7', text: '#92400e', border: '#f59e0b' },
-      low: { bg: '#dbeafe', text: '#1e40af', border: '#3b82f6' },
+    const priorityConfig: Record<string, { color: string; bg: string; icon: string }> = {
+      critical: { color: '#dc2626', bg: '#fee2e2', icon: '🚨' },
+      high: { color: '#f97316', bg: '#fed7aa', icon: '⚠️' },
+      medium: { color: '#f59e0b', bg: '#fef3c7', icon: '⚡' },
+      low: { color: '#3b82f6', bg: '#dbeafe', icon: 'ℹ️' },
     }
 
-    const colors = priorityColors[priority as keyof typeof priorityColors] || priorityColors.medium
+    const config = priorityConfig[priority as keyof typeof priorityConfig] || priorityConfig.medium
 
     const result = await sendBrevoEmail({
       to,
-      subject: `🚨 ${priority.toUpperCase()} Churn Risk Alert - Action Required`,
+      subject: `${config.icon} ${priority.toUpperCase()} Churn Risk Alert - Immediate Action Required`,
       htmlContent: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #dc2626;">🚨 Churn Risk Alert</h2>
-          
-          <div style="background: ${colors.bg}; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid ${colors.border};">
-            <div style="display: inline-block; background: ${colors.border}; color: white; padding: 4px 12px; border-radius: 4px; font-weight: bold; margin-bottom: 10px;">
-              ${priority.toUpperCase()} PRIORITY
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${EMAIL_STYLES}
+          <style>
+            .alert-header { 
+              background: linear-gradient(135deg, ${config.color} 0%, ${priority === 'critical' ? '#991b1b' : '#dc2626'} 100%);
+            }
+            .pattern-item {
+              background: #f8fafc;
+              padding: 12px 16px;
+              border-radius: 6px;
+              margin: 8px 0;
+              border-left: 3px solid ${config.color};
+            }
+            .recommendation-card {
+              background: white;
+              padding: 16px;
+              border-radius: 8px;
+              margin: 12px 0;
+              border: 1px solid #e2e8f0;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+          </style>
+        </head>
+        <body>
+          <div class="email-container">
+            <div class="header alert-header">
+              <div style="font-size: 56px; margin-bottom: 8px;">${config.icon}</div>
+              <h1>Churn Risk Alert</h1>
+              <div style="display: inline-block; background: white; color: ${config.color}; padding: 8px 20px; border-radius: 20px; font-weight: 700; margin-top: 12px; font-size: 14px;">
+                ${priority.toUpperCase()} PRIORITY
+              </div>
             </div>
-            <p style="color: ${colors.text}; margin: 10px 0; font-size: 16px; font-weight: 600;">
-              ${alertMessage}
-            </p>
-          </div>
+            <div class="content">
+              <div style="background: ${config.bg}; padding: 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid ${config.color};">
+                <p style="margin: 0; color: ${config.color}; font-size: 17px; font-weight: 600; line-height: 1.5;">
+                  ${alertMessage}
+                </p>
+              </div>
 
-          ${patterns.length > 0 ? `
-            <div style="margin: 20px 0;">
-              <h3 style="color: #1e293b; margin-bottom: 10px;">📊 Patterns Detected:</h3>
-              <ul style="color: #475569;">
-                ${patterns.map(p => `<li style="margin: 5px 0;">${p}</li>`).join('')}
-              </ul>
-            </div>
-          ` : ''}
-
-          ${recommendations.length > 0 ? `
-            <div style="margin: 20px 0;">
-              <h3 style="color: #1e293b; margin-bottom: 10px;">💡 Recommended Actions:</h3>
-              ${recommendations.slice(0, 3).map(rec => `
-                <div style="background: #f8fafc; padding: 15px; border-radius: 6px; margin: 10px 0; border-left: 3px solid #3b82f6;">
-                  <div style="font-weight: 600; color: #1e293b; margin-bottom: 5px;">
-                    ${rec.action}
-                  </div>
-                  <div style="font-size: 14px; color: #64748b;">
-                    Department: ${rec.department} | Priority: ${rec.priority}
-                  </div>
-                  <div style="font-size: 14px; color: #475569; margin-top: 5px;">
-                    ${rec.expected_impact}
-                  </div>
+              ${patterns.length > 0 ? `
+                <div style="margin: 32px 0;">
+                  <h3 style="color: #1e293b; margin-bottom: 16px; font-size: 20px;">
+                    📊 Patterns Detected
+                  </h3>
+                  ${patterns.map(pattern => `
+                    <div class="pattern-item">
+                      <p style="margin: 0; color: #475569; font-weight: 500;">${pattern}</p>
+                    </div>
+                  `).join('')}
                 </div>
-              `).join('')}
+              ` : ''}
+
+              ${recommendations.length > 0 ? `
+                <div style="margin: 32px 0;">
+                  <h3 style="color: #1e293b; margin-bottom: 16px; font-size: 20px;">
+                    💡 AI-Recommended Actions
+                  </h3>
+                  <p style="color: #64748b; margin-bottom: 16px;">Take these steps to reduce turnover:</p>
+                  ${recommendations.slice(0, 3).map((rec, index) => `
+                    <div class="recommendation-card">
+                      <div style="display: flex; align-items: start; gap: 12px;">
+                        <div style="background: linear-gradient(135deg, #2563eb 0%, #9333ea 100%); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0;">
+                          ${index + 1}
+                        </div>
+                        <div style="flex: 1;">
+                          <div style="font-weight: 600; color: #1e293b; margin-bottom: 6px; font-size: 16px;">
+                            ${rec.action}
+                          </div>
+                          <div style="color: #64748b; font-size: 14px; margin-bottom: 8px;">
+                            <strong>Department:</strong> ${rec.department} • 
+                            <strong>Priority:</strong> <span style="color: ${config.color}; font-weight: 600;">${rec.priority}</span>
+                          </div>
+                          <div style="color: #475569; font-size: 14px; line-height: 1.5;">
+                            <strong>Expected Impact:</strong> ${rec.expected_impact}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : ''}
+
+              <div style="background: #faf5ff; padding: 20px; border-radius: 8px; margin: 32px 0; border-left: 4px solid #9333ea; text-align: center;">
+                <p style="margin: 0; color: #6b21a8; font-weight: 600; font-size: 15px;">
+                  🤖 This analysis was generated by AI based on ${patterns.length} exit survey${patterns.length !== 1 ? 's' : ''} and recent trends.
+                </p>
+              </div>
+
+              <div style="text-align: center;">
+                <a href="${appUrl}/dashboard/insights" class="button" style="background: linear-gradient(135deg, ${config.color} 0%, ${priority === 'critical' ? '#991b1b' : '#dc2626'} 100%); font-size: 16px; padding: 16px 40px;">
+                  View Full Insights Dashboard →
+                </a>
+              </div>
+
+              <p style="margin-top: 32px; color: #64748b; font-size: 14px; text-align: center;">
+                <strong>Act quickly to prevent further turnover.</strong><br>
+                Early intervention can significantly improve retention rates.
+              </p>
             </div>
-          ` : ''}
-
-          <a href="${appUrl}/dashboard/insights" 
-             style="display: inline-block; background: #dc2626; color: white; padding: 12px 24px; 
-                    text-decoration: none; border-radius: 6px; font-weight: 600; margin-top: 20px;">
-            View Full Insights Dashboard
-          </a>
-
-          <p style="margin-top: 30px; color: #64748b; font-size: 14px;">
-            This alert was generated by AI analysis of recent exit surveys. Take action soon to prevent further turnover.
-          </p>
-
-          <p style="margin-top: 10px; color: #64748b; font-size: 12px;">
-            This is an automated alert from OffboardPro.
-          </p>
-        </div>
+            <div class="footer">
+              <p style="margin: 0;">This alert was generated by <strong>OffboardPro AI</strong></p>
+              <p style="margin: 8px 0 0 0;">Secure Employee Offboarding Platform</p>
+            </div>
+          </div>
+        </body>
+        </html>
       `,
     })
     
-    console.log('Churn alert email sent to:', to)
+    console.log('✅ Churn alert email sent to:', to)
     return result
   } catch (error) {
     console.error('Failed to send churn alert email:', error)
@@ -621,7 +1035,6 @@ export async function sendChurnAlertEmail({
   }
 }
 
-// 🎯 NEW: Exit Survey Invitation Email
 export async function sendExitSurveyInvitationEmail({
   to,
   employeeName,
@@ -637,62 +1050,122 @@ export async function sendExitSurveyInvitationEmail({
 
     const result = await sendBrevoEmail({
       to,
-      subject: `We'd Love Your Feedback - Exit Survey`,
+      subject: `✨ We'd Love Your Feedback - Exit Survey`,
       htmlContent: `
         <!DOCTYPE html>
         <html>
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          ${EMAIL_STYLES}
+          <style>
+            .survey-header { 
+              background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
+            }
+            .benefit-item {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+              margin: 12px 0;
+            }
+            .benefit-icon {
+              background: #faf5ff;
+              color: #9333ea;
+              width: 36px;
+              height: 36px;
+              border-radius: 50%;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 18px;
+              flex-shrink: 0;
+            }
+          </style>
         </head>
-        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0;">
-          <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-            <div style="background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); color: white; padding: 30px; border-radius: 10px 10px 0 0; text-align: center;">
-              <h1 style="margin: 0; font-size: 28px;">✨ We Value Your Feedback</h1>
+        <body>
+          <div class="email-container">
+            <div class="header survey-header">
+              <div style="font-size: 56px; margin-bottom: 8px;">✨</div>
+              <h1>We Value Your Feedback</h1>
             </div>
-            <div style="background: #f9fafb; padding: 30px; border-radius: 0 0 10px 10px;">
-              <p style="font-size: 16px;">Hi <strong>${employeeName}</strong>,</p>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">
+                Hi <strong>${employeeName}</strong>,
+              </p>
               
-              <p>Thank you for your contributions to <strong>${organizationName}</strong>. As part of our offboarding process, we'd appreciate your honest feedback to help us improve.</p>
+              <p style="font-size: 16px; line-height: 1.7; color: #475569;">
+                Thank you for your contributions to <strong style="color: #9333ea;">${organizationName}</strong>. As part of our commitment to continuous improvement, we'd greatly appreciate your honest feedback about your experience with us.
+              </p>
               
-              <div style="background: #faf5ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #9333ea;">
-                <p style="margin: 0; color: #581c87;">
-                  <strong>📝 Quick Survey</strong><br>
-                  This brief survey takes just <strong>2 minutes</strong> and your responses will be kept confidential. Your insights will help us create a better workplace for future team members.
+              <div style="background: #faf5ff; padding: 24px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #9333ea;">
+                <h3 style="margin: 0 0 16px 0; color: #6b21a8; font-size: 18px;">
+                  📝 Quick & Confidential Survey
+                </h3>
+                <p style="margin: 0; color: #7c3aed; line-height: 1.6;">
+                  This brief survey takes just <strong>2 minutes</strong> to complete. Your responses are completely <strong>confidential</strong> and will be used only to help us create a better workplace for future team members.
                 </p>
               </div>
               
-              <p>The survey covers:</p>
-              <ul style="color: #475569;">
-                <li>Primary reason for leaving</li>
-                <li>Likelihood to recommend the company</li>
-                <li>Possibility of returning in the future</li>
-                <li>Suggestions for improvement</li>
-              </ul>
-              
-              <div style="text-align: center; margin: 30px 0;">
-                <a href="${surveyLink}" style="display: inline-block; background: #9333ea; color: white; padding: 14px 32px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px;">Complete Exit Survey</a>
+              <div style="margin: 32px 0;">
+                <h3 style="color: #1e293b; margin-bottom: 16px; font-size: 18px;">What We'll Ask About:</h3>
+                
+                <div class="benefit-item">
+                  <div class="benefit-icon">🎯</div>
+                  <div style="color: #475569;">Your primary reason for leaving</div>
+                </div>
+                
+                <div class="benefit-item">
+                  <div class="benefit-icon">⭐</div>
+                  <div style="color: #475569;">Likelihood to recommend the company</div>
+                </div>
+                
+                <div class="benefit-item">
+                  <div class="benefit-icon">🔄</div>
+                  <div style="color: #475569;">Possibility of returning in the future</div>
+                </div>
+                
+                <div class="benefit-item">
+                  <div class="benefit-icon">💡</div>
+                  <div style="color: #475569;">Suggestions for workplace improvement</div>
+                </div>
               </div>
               
-              <div style="background: #dbeafe; padding: 15px; border-radius: 6px; margin: 20px 0;">
-                <p style="margin: 0; color: #1e40af; font-size: 14px;">
-                  <strong>⏰ This link will expire in ${expiresInDays} days.</strong><br>
-                  Your feedback is anonymous and will only be used to improve our workplace.
+              <div style="text-align: center; margin: 32px 0;">
+                <a href="${surveyLink}" class="button" style="background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); font-size: 16px; padding: 16px 40px;">
+                  Complete Exit Survey (2 min) →
+                </a>
+              </div>
+              
+              <div style="background: #dbeafe; padding: 20px; border-radius: 8px; margin: 32px 0; text-align: center;">
+                <p style="margin: 0; color: #1e40af; font-weight: 600; font-size: 15px;">
+                  ⏰ This survey link expires in ${expiresInDays} days
+                </p>
+                <p style="margin: 8px 0 0 0; color: #1e3a8a; font-size: 14px;">
+                  Your feedback is anonymous and helps us improve for everyone.
                 </p>
               </div>
               
-              <p style="margin-top: 30px;">We wish you all the best in your future endeavors!</p>
+              <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 32px 0;">
+                <p style="margin: 0 0 12px 0; color: #1e293b; font-weight: 600;">
+                  Why Your Feedback Matters:
+                </p>
+                <p style="margin: 0; color: #64748b; line-height: 1.6; font-size: 14px;">
+                  Exit surveys help us identify areas for improvement, understand team dynamics, and create a better work environment. Your honest insights contribute directly to positive changes that benefit current and future employees.
+                </p>
+              </div>
               
-              <p style="margin-top: 20px; font-size: 15px;">
+              <p style="margin-top: 32px; font-size: 16px; line-height: 1.7;">
+                We wish you all the best in your future endeavors! 🚀
+              </p>
+              
+              <p style="margin-top: 24px; font-size: 16px;">
                 Best regards,<br>
-                <strong>The ${organizationName} Team</strong>
+                <strong style="color: #2563eb;">The ${organizationName} Team</strong>
               </p>
             </div>
-            <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-              <p>© 2024 OffboardPro. All rights reserved.</p>
-              <p style="margin-top: 10px;">
-                If you have any questions, please contact your HR department.
-              </p>
+            <div class="footer">
+              <p style="margin: 0;">© 2024 <strong>OffboardPro</strong>. All rights reserved.</p>
+              <p style="margin: 8px 0 0 0;">If you have questions, please contact your HR department.</p>
             </div>
           </div>
         </body>
