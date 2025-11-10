@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Mail, User, Shield, Trash2, UserMinus } from 'lucide-react'
+import { Plus, Mail, User, Shield, Trash2, UserMinus, Users, RefreshCw, AlertCircle, UserPlus, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import InviteUserModal from '@/components/dashboard/InviteUserModal'
 import { getCurrentOrganization } from '@/lib/workspace'
@@ -36,6 +36,7 @@ interface Invitation {
 
 export default function TeamPage() {
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
   const [invitations, setInvitations] = useState<Invitation[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -52,17 +53,19 @@ export default function TeamPage() {
 
   async function loadTeamData() {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
+      setLoading(true)
+      setError(null)
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      if (authError || !user) {
         router.push('/login')
         return
       }
 
-      // Get current organization from workspace utility
       const { organization, role } = await getCurrentOrganization()
       
       if (!organization) {
-        console.error('No current organization')
+        setError('No organization found. Please create or join an organization.')
         setLoading(false)
         return
       }
@@ -71,7 +74,6 @@ export default function TeamPage() {
       setCurrentOrgName(organization.name)
       setCurrentUserRole(role || '')
 
-      // Get current user data
       const { data: userData } = await supabase
         .from('users')
         .select('*')
@@ -80,7 +82,6 @@ export default function TeamPage() {
 
       setCurrentUser(userData)
 
-      // Get all team members - using the foreign key relationship
       const { data: members, error: membersError } = await supabase
         .from('organization_members')
         .select(`
@@ -101,9 +102,10 @@ export default function TeamPage() {
         .order('joined_at', { ascending: false })
 
       if (membersError) {
-        console.error('Error fetching members:', membersError)
-      } else if (members) {
-        // Transform the data to match TeamMember interface
+        throw membersError
+      }
+
+      if (members) {
         const transformedMembers = members.map((m: any) => ({
           id: m.id,
           user_id: m.user_id,
@@ -116,7 +118,6 @@ export default function TeamPage() {
         setTeamMembers(transformedMembers)
       }
 
-      // Get pending invitations with inviter info
       const { data: invites } = await supabase
         .from('invitations')
         .select(`
@@ -130,8 +131,9 @@ export default function TeamPage() {
       if (invites) {
         setInvitations(invites)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading team data:', error)
+      setError(error.message || 'Failed to load team data. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -143,7 +145,6 @@ export default function TeamPage() {
     }
 
     try {
-      // Deactivate the membership instead of deleting
       const { error } = await supabase
         .from('organization_members')
         .update({ is_active: false })
@@ -151,11 +152,11 @@ export default function TeamPage() {
 
       if (error) throw error
 
-      alert('Member removed successfully')
+      alert('✅ Member removed successfully')
       loadTeamData()
     } catch (error: any) {
       console.error('Error removing member:', error)
-      alert(`Failed to remove member: ${error.message}`)
+      alert(`❌ Failed to remove member: ${error.message}`)
     }
   }
 
@@ -172,26 +173,26 @@ export default function TeamPage() {
 
       if (error) throw error
 
-      alert('Invitation cancelled successfully')
+      alert('✅ Invitation cancelled successfully')
       loadTeamData()
     } catch (error: any) {
       console.error('Error cancelling invitation:', error)
-      alert(`Failed to cancel invitation: ${error.message}`)
+      alert(`❌ Failed to cancel invitation: ${error.message}`)
     }
   }
 
   function getRoleBadgeColor(role: string) {
     switch (role) {
       case 'admin':
-        return 'bg-purple-500 text-white'
+        return 'bg-purple-500 text-white hover:bg-purple-600'
       case 'hr_manager':
-        return 'bg-blue-500 text-white'
+        return 'bg-blue-500 text-white hover:bg-blue-600'
       case 'it_manager':
-        return 'bg-green-500 text-white'
+        return 'bg-green-500 text-white hover:bg-green-600'
       case 'manager':
-        return 'bg-orange-500 text-white'
+        return 'bg-orange-500 text-white hover:bg-orange-600'
       default:
-        return 'bg-gray-500 text-white'
+        return 'bg-gray-500 text-white hover:bg-gray-600'
     }
   }
 
@@ -232,10 +233,76 @@ export default function TeamPage() {
     }
   }
 
+  // 🎨 Loading State with Skeleton
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="container mx-auto p-6 max-w-6xl">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <div className="h-9 w-48 bg-slate-200 rounded animate-pulse"></div>
+            <div className="h-4 w-80 bg-slate-100 rounded mt-2 animate-pulse"></div>
+          </div>
+          <div className="h-10 w-32 bg-slate-200 rounded animate-pulse"></div>
+        </div>
+
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-slate-200 rounded-full animate-pulse"></div>
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-32 bg-slate-200 rounded animate-pulse"></div>
+                <div className="h-6 w-48 bg-slate-200 rounded animate-pulse"></div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="h-6 w-40 bg-slate-200 rounded animate-pulse"></div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+                  <div className="w-10 h-10 bg-slate-200 rounded-full animate-pulse"></div>
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-32 bg-slate-200 rounded animate-pulse"></div>
+                    <div className="h-3 w-48 bg-slate-100 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // ❌ Error State
+  if (error) {
+    return (
+      <div className="container mx-auto p-6 max-w-6xl">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
+            <p className="text-gray-600 mt-1">Manage your team members and invitations</p>
+          </div>
+        </div>
+
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="text-center py-12">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-red-900 mb-2">Failed to Load Team</h3>
+            <p className="text-red-700 mb-6 max-w-md mx-auto">{error}</p>
+            <Button onClick={loadTeamData} variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Try Again
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -251,8 +318,11 @@ export default function TeamPage() {
           </p>
         </div>
         {canInviteUsers() && (
-          <Button onClick={() => setShowInviteModal(true)} className="gap-2">
-            <Plus className="w-4 h-4" />
+          <Button 
+            onClick={() => setShowInviteModal(true)} 
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
             Invite User
           </Button>
         )}
@@ -262,7 +332,7 @@ export default function TeamPage() {
       <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center">
               <User className="w-8 h-8 text-white" />
             </div>
             <div className="flex-1">
@@ -283,40 +353,60 @@ export default function TeamPage() {
       </Card>
 
       {/* Team Purpose Explanation */}
-      <Card className="mb-6 border-2 border-amber-200 bg-amber-50">
+      <Card className="mb-6 border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-amber-900">
             <Shield className="w-5 h-5" />
-            What are Team Members for?
+            Why Add Team Members?
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <ul className="space-y-2 text-sm text-amber-900">
-            <li className="flex items-start gap-2">
-              <span className="text-amber-600 font-bold">•</span>
-              <span><strong>Collaboration:</strong> Multiple people can work on offboarding tasks</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-amber-600 font-bold">•</span>
-              <span><strong>Role-based Access:</strong> Control who can create offboardings vs just complete tasks</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-amber-600 font-bold">•</span>
-              <span><strong>Department Separation:</strong> IT Managers handle IT tasks, HR handles HR tasks</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-amber-600 font-bold">•</span>
-              <span><strong>Visibility:</strong> Everyone in the organization can see progress and status</span>
-            </li>
-          </ul>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Users className="w-4 h-4 text-amber-800" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900 mb-1">Collaboration</p>
+                <p className="text-sm text-amber-800">Multiple people can work on offboarding tasks together</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Shield className="w-4 h-4 text-amber-800" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900 mb-1">Role-based Access</p>
+                <p className="text-sm text-amber-800">Control who can create offboardings vs complete tasks</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <UserPlus className="w-4 h-4 text-amber-800" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900 mb-1">Department Separation</p>
+                <p className="text-sm text-amber-800">IT, HR, and other teams handle their specific tasks</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 bg-amber-200 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                <CheckCircle className="w-4 h-4 text-amber-800" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900 mb-1">Visibility</p>
+                <p className="text-sm text-amber-800">Everyone sees progress and stays aligned</p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
       {/* Active Team Members */}
-      <Card className="mb-6">
+      <Card className="mb-6 border-2 border-slate-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <User className="w-5 h-5" />
+            <Users className="w-5 h-5 text-blue-600" />
             Active Members ({teamMembers.length})
           </CardTitle>
           <CardDescription>
@@ -325,15 +415,27 @@ export default function TeamPage() {
         </CardHeader>
         <CardContent>
           {teamMembers.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">
-              No active team members
-            </p>
+            <div className="text-center py-12">
+              <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-10 h-10 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">No Team Members Yet</h3>
+              <p className="text-slate-600 mb-6 max-w-md mx-auto">
+                You're the only member. Invite others to collaborate on offboardings.
+              </p>
+              {canInviteUsers() && (
+                <Button onClick={() => setShowInviteModal(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Invite First Team Member
+                </Button>
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               {teamMembers.map(member => (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between p-4 border rounded-lg hover:shadow-md hover:border-blue-200 transition-all"
                 >
                   <div className="flex items-center gap-4 flex-1">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
@@ -373,11 +475,11 @@ export default function TeamPage() {
       </Card>
 
       {/* Pending Invitations */}
-      {canInviteUsers() && invitations.length > 0 && (
-        <Card>
+      {canInviteUsers() && (
+        <Card className="border-2 border-slate-200">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Mail className="w-5 h-5" />
+              <Mail className="w-5 h-5 text-yellow-600" />
               Pending Invitations ({invitations.length})
             </CardTitle>
             <CardDescription>
@@ -385,43 +487,50 @@ export default function TeamPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {invitations.map(invite => (
-                <div
-                  key={invite.id}
-                  className="flex items-center justify-between p-4 border border-dashed rounded-lg bg-yellow-50"
-                >
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                      <Mail className="w-5 h-5 text-yellow-600" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-900">{invite.email}</div>
-                      <div className="text-sm text-gray-600">
-                        Invited by {invite.inviter?.name || 'Unknown'} on {formatDate(invite.created_at)}
+            {invitations.length === 0 ? (
+              <div className="text-center py-8">
+                <Mail className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                <p className="text-slate-500 text-sm">No pending invitations</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {invitations.map(invite => (
+                  <div
+                    key={invite.id}
+                    className="flex items-center justify-between p-4 border border-dashed rounded-lg bg-yellow-50 hover:bg-yellow-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                        <Mail className="w-5 h-5 text-yellow-600" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{invite.email}</div>
+                        <div className="text-sm text-gray-600">
+                          Invited by {invite.inviter?.name || 'Unknown'} on {formatDate(invite.created_at)}
+                        </div>
                       </div>
                     </div>
+                    <div className="flex items-center gap-3">
+                      <Badge className={getRoleBadgeColor(invite.role)}>
+                        {formatRole(invite.role)}
+                      </Badge>
+                      <Badge variant="outline" className="text-yellow-700 border-yellow-400 bg-yellow-100">
+                        Pending
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => cancelInvitation(invite.id)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                        title="Cancel invitation"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <Badge className={getRoleBadgeColor(invite.role)}>
-                      {formatRole(invite.role)}
-                    </Badge>
-                    <Badge variant="outline" className="text-yellow-600 border-yellow-600">
-                      Pending
-                    </Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => cancelInvitation(invite.id)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                      title="Cancel invitation"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
