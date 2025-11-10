@@ -13,7 +13,8 @@ import {
   Menu,
   X,
   Sparkles,
-  Shield
+  Shield,
+  HelpCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
@@ -37,6 +38,7 @@ export default function DashboardLayout({
     { name: 'AI Insights', href: '/dashboard/insights', icon: Sparkles, highlight: true },
     { name: 'Security', href: '/dashboard/security', icon: Shield, highlight: true },
     { name: 'Team', href: '/dashboard/team', icon: Users },
+    { name: 'Help', href: '/dashboard/help', icon: HelpCircle, highlight: true }, // 📚 NEW!
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ]
 
@@ -110,6 +112,8 @@ export default function DashboardLayout({
                 activeClasses = 'bg-purple-50 text-purple-600'
               } else if (item.name === 'Security' && active) {
                 activeClasses = 'bg-red-50 text-red-600'
+              } else if (item.name === 'Help' && active) {
+                activeClasses = 'bg-green-50 text-green-600'
               }
               
               return (
@@ -128,7 +132,8 @@ export default function DashboardLayout({
                 >
                   <Icon className={`w-5 h-5 ${
                     item.name === 'AI Insights' && active ? 'text-purple-600' :
-                    item.name === 'Security' && active ? 'text-red-600' : ''
+                    item.name === 'Security' && active ? 'text-red-600' :
+                    item.name === 'Help' && active ? 'text-green-600' : ''
                   }`} />
                   {item.name}
                   {isHighlight && (
@@ -137,6 +142,8 @@ export default function DashboardLayout({
                         <Sparkles className="w-3 h-3 text-purple-400" />
                       ) : item.name === 'Security' ? (
                         <Shield className="w-3 h-3 text-red-400" />
+                      ) : item.name === 'Help' ? (
+                        <HelpCircle className="w-3 h-3 text-green-400" />
                       ) : null}
                     </span>
                   )}
