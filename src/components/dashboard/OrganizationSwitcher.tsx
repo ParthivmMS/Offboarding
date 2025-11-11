@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -22,17 +23,22 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Building, Check, ChevronDown, Plus, Loader2 } from 'lucide-react'
-import {
-  getUserOrganizations,
-  getCurrentOrganization,
-  switchOrganization,
-  createOrganization,
-  type Organization,
-  type OrganizationMembership
-} from '@/lib/workspace'
+import { createOrganization } from '@/lib/workspace'
+
+interface Organization {
+  id: string
+  name: string
+}
+
+interface OrganizationMembership {
+  id: string
+  role: string
+  organization: Organization
+}
 
 export default function OrganizationSwitcher() {
   const router = useRouter()
+  const supabase = createClient()
   const [currentOrg, setCurrentOrg] = useState<Organization | null>(null)
   const [organizations, setOrganizations] = useState<OrganizationMembership[]>([])
   const [loading, setLoading] = useState(true)
@@ -46,33 +52,106 @@ export default function OrganizationSwitcher() {
   }, [])
 
   async function loadOrganizations() {
-    console.log('🔄 OrganizationSwitcher: Loading organizations...')
-    setLoading(true)
-    
-    const [current, orgs] = await Promise.all([
-      getCurrentOrganization(),
-      getUserOrganizations()
-    ])
-    
-    console.log('📊 Current org:', current.organization)
-    console.log('📋 All orgs:', orgs)
-    console.log('📋 Orgs count:', orgs.length)
-    
-    setCurrentOrg(current.organization)
-    setOrganizations(orgs)
-    setLoading(false)
+    try {
+      setLoading(true)
+      
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Get current organization ID
+      const { data: userData } = await supabase
+        .from('users')
+        .select('current_organization_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (userData?.current_organization_id) {
+        // Get current organization details
+        const { data: orgData } = await supabase
+          .from('organizations')
+          .select('id, name')
+          .eq('id', userData.current_organization_id)
+          .maybeSingle()
+
+        if (orgData) {
+          setCurrentOrg(orgData)
+        }
+      }
+
+      // Get all organizations user is member of
+      const { data: memberships } = await supabase
+        .from('organization_members')
+        .select('id, role, organization_id')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .order('joined_at', { ascending: false })
+
+      if (memberships && memberships.length > 0) {
+        // Fetch organization details for each membership
+        const orgIds = memberships.map(m => m.organization_id)
+        const { data: orgs } = await supabase
+          .from('organizations')
+          .select('id, name')
+          .in('id', orgIds)
+
+        if (orgs) {
+          // Combine membership and organization data
+          const fullMemberships = memberships.map(m => ({
+            id: m.id,
+            role: m.role,
+            organization: orgs.find(o => o.id === m.organization_id) || { id: m.organization_id, name: 'Unknown' }
+          }))
+          
+          setOrganizations(fullMemberships)
+        }
+      }
+    } catch (error) {
+      console.error('Error loading organizations:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   async function handleSwitchOrganization(orgId: string) {
     if (orgId === currentOrg?.id) return
 
-    setSwitching(true)
-    const success = await switchOrganization(orgId)
-    
-    if (success) {
-      // Reload the page to refresh all data with new organization context
+    try {
+      setSwitching(true)
+      
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Verify user is member of this organization
+      const { data: membership } = await supabase
+        .from('organization_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('organization_id', orgId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      if (!membership) {
+        alert('You are not a member of this organization')
+        setSwitching(false)
+        return
+      }
+
+      // Update current organization
+      const { error } = await supabase
+        .from('users')
+        .update({ current_organization_id: orgId })
+        .eq('id', user.id)
+
+      if (error) {
+        alert('Failed to switch organization')
+        setSwitching(false)
+        return
+      }
+
+      // Reload the page to refresh all data
       window.location.href = '/dashboard'
-    } else {
+    } catch (error) {
+      console.error('Error switching organization:', error)
       alert('Failed to switch organization')
       setSwitching(false)
     }
@@ -143,17 +222,7 @@ export default function OrganizationSwitcher() {
           </DropdownMenuLabel>
 
           {organizations.map((membership) => {
-            // Debug: Log each membership
-            console.log('🔍 Rendering membership:', membership)
-            
-            const org = membership.organization as Organization
-            
-            // Safety check: Skip if organization is null/undefined
-            if (!org || !org.id) {
-              console.warn('⚠️ Skipping membership - no organization data:', membership)
-              return null
-            }
-            
+            const org = membership.organization
             const isActive = org.id === currentOrg?.id
             const badge = getRoleBadge(membership.role)
 
@@ -178,6 +247,13 @@ export default function OrganizationSwitcher() {
               </DropdownMenuItem>
             )
           })}
+
+          {organizations.length === 0 && (
+            <div className="px-2 py-6 text-center">
+              <p className="text-sm text-gray-500 mb-2">No organizations yet</p>
+              <p className="text-xs text-gray-400">Create your first organization to get started</p>
+            </div>
+          )}
 
           <DropdownMenuSeparator />
 
