@@ -314,7 +314,7 @@ export default function TeamPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
           <p className="text-gray-600 mt-1">
-            Manage {currentOrgName}'s team members and invitations
+            Manage {currentOrgName || 'your organization'}'s team members and invitations
           </p>
         </div>
         {canInviteUsers() && (
@@ -410,7 +410,7 @@ export default function TeamPage() {
             Active Members ({teamMembers.length})
           </CardTitle>
           <CardDescription>
-            Team members with active accounts in {currentOrgName}
+            Team members with active accounts in {currentOrgName || 'your organization'}
           </CardDescription>
         </CardHeader>
         <CardContent>
