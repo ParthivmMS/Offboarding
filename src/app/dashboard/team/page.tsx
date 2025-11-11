@@ -126,11 +126,15 @@ export default function TeamPage() {
       if (members && members.length > 0) {
         // Fetch user details separately for each member
         const memberPromises = members.map(async (m: any) => {
-          const { data: userData } = await supabase
+          console.log('Fetching user for user_id:', m.user_id)
+          
+          const { data: userData, error: userFetchError } = await supabase
             .from('users')
             .select('id, name, email, created_at')
             .eq('id', m.user_id)
             .maybeSingle()
+
+          console.log('User data received:', userData, 'Error:', userFetchError)
 
           return {
             id: m.id,
@@ -144,6 +148,7 @@ export default function TeamPage() {
         })
 
         const transformedMembers = await Promise.all(memberPromises)
+        console.log('Final transformed members:', transformedMembers)
         setTeamMembers(transformedMembers)
       }
 
