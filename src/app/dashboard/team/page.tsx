@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Mail, User, Shield, Trash2, UserMinus, Users, RefreshCw, AlertCircle, UserPlus, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import InviteUserModal from '@/components/dashboard/InviteUserModal'
-import { getCurrentOrganization } from '@/lib/workspace'
 
 interface TeamMember {
   id: string
@@ -42,7 +41,7 @@ export default function TeamPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [currentUserRole, setCurrentUserRole] = useState<string>('')
   const [currentOrgId, setCurrentOrgId] = useState<string>('')
-  const [currentOrgName, setCurrentOrgName] = useState<string>('')
+  const [currentOrgName, setCurrentOrgName] = useState<string>('Your Organization')
   const [showInviteModal, setShowInviteModal] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -57,31 +56,56 @@ export default function TeamPage() {
       setError(null)
 
       const { data: { user }, error: authError } = await supabase.auth.getUser()
+
       if (authError || !user) {
         router.push('/login')
         return
       }
 
-      const { organization, role } = await getCurrentOrganization()
-      
-      if (!organization) {
+      // Get current user data FIRST
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('current_organization_id')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (userError || !userData?.current_organization_id) {
         setError('No organization found. Please create or join an organization.')
         setLoading(false)
         return
       }
 
-      setCurrentOrgId(organization.id)
-      setCurrentOrgName(organization.name)
-      setCurrentUserRole(role || '')
+      const orgId = userData.current_organization_id
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
+      // Get organization details
+      const { data: orgData, error: orgError } = await supabase
+        .from('organizations')
+        .select('id, name')
+        .eq('id', orgId)
         .maybeSingle()
 
-      setCurrentUser(userData)
+      if (orgError || !orgData) {
+        setError('Could not load organization details.')
+        setLoading(false)
+        return
+      }
 
+      setCurrentOrgId(orgData.id)
+      setCurrentOrgName(orgData.name)
+
+      // Get user's role
+      const { data: membershipData } = await supabase
+        .from('organization_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .eq('organization_id', orgId)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      setCurrentUserRole(membershipData?.role || '')
+      setCurrentUser({ id: user.id, name: user.email, email: user.email })
+
+      // Get all team members
       const { data: members, error: membersError } = await supabase
         .from('organization_members')
         .select(`
@@ -97,7 +121,7 @@ export default function TeamPage() {
             created_at
           )
         `)
-        .eq('organization_id', organization.id)
+        .eq('organization_id', orgId)
         .eq('is_active', true)
         .order('joined_at', { ascending: false })
 
@@ -109,22 +133,23 @@ export default function TeamPage() {
         const transformedMembers = members.map((m: any) => ({
           id: m.id,
           user_id: m.user_id,
-          name: m.users.name,
-          email: m.users.email,
+          name: m.users?.name || m.users?.email || 'Unknown',
+          email: m.users?.email || 'unknown@email.com',
           role: m.role,
           is_active: m.is_active,
-          created_at: m.users.created_at
+          created_at: m.users?.created_at || m.joined_at
         }))
         setTeamMembers(transformedMembers)
       }
 
+      // Get pending invitations
       const { data: invites } = await supabase
         .from('invitations')
         .select(`
           *,
           inviter:users!invitations_invited_by_fkey(name, email)
         `)
-        .eq('organization_id', organization.id)
+        .eq('organization_id', orgId)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
 
@@ -314,7 +339,7 @@ export default function TeamPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
           <p className="text-gray-600 mt-1">
-            Manage {currentOrgName || 'your organization'}'s team members and invitations
+            Manage {currentOrgName}'s team members and invitations
           </p>
         </div>
         {canInviteUsers() && (
@@ -337,7 +362,7 @@ export default function TeamPage() {
             </div>
             <div className="flex-1">
               <p className="text-sm text-gray-600 mb-1">You are signed in as</p>
-              <p className="font-bold text-lg text-gray-900">{currentUser?.name}</p>
+              <p className="font-bold text-lg text-gray-900">{currentUser?.name || currentUser?.email}</p>
               <p className="text-sm text-gray-600">{currentUser?.email}</p>
             </div>
             <div>
@@ -410,7 +435,7 @@ export default function TeamPage() {
             Active Members ({teamMembers.length})
           </CardTitle>
           <CardDescription>
-            Team members with active accounts in {currentOrgName || 'your organization'}
+            Team members with active accounts in {currentOrgName}
           </CardDescription>
         </CardHeader>
         <CardContent>
