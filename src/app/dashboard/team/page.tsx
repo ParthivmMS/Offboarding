@@ -113,13 +113,7 @@ export default function TeamPage() {
           user_id,
           role,
           is_active,
-          joined_at,
-          users!organization_members_user_id_fkey(
-            id,
-            name,
-            email,
-            created_at
-          )
+          joined_at
         `)
         .eq('organization_id', orgId)
         .eq('is_active', true)
@@ -129,16 +123,27 @@ export default function TeamPage() {
         throw membersError
       }
 
-      if (members) {
-        const transformedMembers = members.map((m: any) => ({
-          id: m.id,
-          user_id: m.user_id,
-          name: m.users?.name || m.users?.email || 'Unknown',
-          email: m.users?.email || 'unknown@email.com',
-          role: m.role,
-          is_active: m.is_active,
-          created_at: m.users?.created_at || m.joined_at
-        }))
+      if (members && members.length > 0) {
+        // Fetch user details separately for each member
+        const memberPromises = members.map(async (m: any) => {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('id, name, email, created_at')
+            .eq('id', m.user_id)
+            .maybeSingle()
+
+          return {
+            id: m.id,
+            user_id: m.user_id,
+            name: userData?.name || userData?.email?.split('@')[0] || 'Unknown User',
+            email: userData?.email || 'unknown@email.com',
+            role: m.role,
+            is_active: m.is_active,
+            created_at: userData?.created_at || m.joined_at
+          }
+        })
+
+        const transformedMembers = await Promise.all(memberPromises)
         setTeamMembers(transformedMembers)
       }
 
