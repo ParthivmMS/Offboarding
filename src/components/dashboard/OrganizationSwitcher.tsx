@@ -56,22 +56,33 @@ export default function OrganizationSwitcher() {
       setLoading(true)
       
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        console.log('❌ No authenticated user')
+        return
+      }
+
+      console.log('✅ User ID:', user.id)
 
       // Get current organization ID
-      const { data: userData } = await supabase
+      const { data: userData, error: userError } = await supabase
         .from('users')
         .select('current_organization_id')
         .eq('id', user.id)
         .maybeSingle()
 
+      console.log('📊 User data:', userData)
+      console.log('❌ User error:', userError)
+
       if (userData?.current_organization_id) {
         // Get current organization details
-        const { data: orgData } = await supabase
+        const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .select('id, name')
           .eq('id', userData.current_organization_id)
           .maybeSingle()
+
+        console.log('🏢 Current org data:', orgData)
+        console.log('❌ Org error:', orgError)
 
         if (orgData) {
           setCurrentOrg(orgData)
@@ -79,20 +90,28 @@ export default function OrganizationSwitcher() {
       }
 
       // Get all organizations user is member of
-      const { data: memberships } = await supabase
+      const { data: memberships, error: memberError } = await supabase
         .from('organization_members')
         .select('id, role, organization_id')
         .eq('user_id', user.id)
         .eq('is_active', true)
         .order('joined_at', { ascending: false })
 
+      console.log('👥 Memberships:', memberships)
+      console.log('❌ Member error:', memberError)
+
       if (memberships && memberships.length > 0) {
         // Fetch organization details for each membership
         const orgIds = memberships.map(m => m.organization_id)
-        const { data: orgs } = await supabase
+        console.log('🔑 Org IDs to fetch:', orgIds)
+        
+        const { data: orgs, error: orgsError } = await supabase
           .from('organizations')
           .select('id, name')
           .in('id', orgIds)
+
+        console.log('🏢 Organizations fetched:', orgs)
+        console.log('❌ Orgs error:', orgsError)
 
         if (orgs) {
           // Combine membership and organization data
@@ -102,11 +121,14 @@ export default function OrganizationSwitcher() {
             organization: orgs.find(o => o.id === m.organization_id) || { id: m.organization_id, name: 'Unknown' }
           }))
           
+          console.log('✅ Final memberships:', fullMemberships)
           setOrganizations(fullMemberships)
         }
+      } else {
+        console.log('⚠️ No memberships found')
       }
     } catch (error) {
-      console.error('Error loading organizations:', error)
+      console.error('💥 Error loading organizations:', error)
     } finally {
       setLoading(false)
     }
