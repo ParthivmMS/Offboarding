@@ -105,27 +105,11 @@ export default function TeamPage() {
       setCurrentUserRole(membershipData?.role || '')
       setCurrentUser({ id: user.id, name: user.email, email: user.email })
 
-      // Get all team members with a single JOIN query
+      // Use database function to get team members (bypasses RLS)
       const { data: members, error: membersError } = await supabase
-        .from('organization_members')
-        .select(`
-          id,
-          user_id,
-          role,
-          is_active,
-          joined_at,
-          users (
-            id,
-            name,
-            email,
-            created_at
-          )
-        `)
-        .eq('organization_id', orgId)
-        .eq('is_active', true)
-        .order('joined_at', { ascending: false })
+        .rpc('get_organization_team_members', { org_id: orgId })
 
-      console.log('👥 Raw members data:', members)
+      console.log('👥 Members from function:', members)
       console.log('❌ Members error:', membersError)
 
       if (membersError) {
@@ -133,18 +117,15 @@ export default function TeamPage() {
       }
 
       if (members && members.length > 0) {
-        const transformedMembers = members.map((m: any) => {
-          console.log('Processing member:', m)
-          return {
-            id: m.id,
-            user_id: m.user_id,
-            name: m.users?.name || m.users?.email?.split('@')[0] || 'Unknown User',
-            email: m.users?.email || 'unknown@email.com',
-            role: m.role,
-            is_active: m.is_active,
-            created_at: m.users?.created_at || m.joined_at
-          }
-        })
+        const transformedMembers = members.map((m: any) => ({
+          id: m.membership_id,
+          user_id: m.user_id,
+          name: m.user_name || m.user_email?.split('@')[0] || 'Unknown User',
+          email: m.user_email || 'unknown@email.com',
+          role: m.role,
+          is_active: true,
+          created_at: m.joined_at
+        }))
         
         console.log('✅ Transformed members:', transformedMembers)
         setTeamMembers(transformedMembers)
