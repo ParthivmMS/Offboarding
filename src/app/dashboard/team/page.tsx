@@ -105,7 +105,7 @@ export default function TeamPage() {
       setCurrentUserRole(membershipData?.role || '')
       setCurrentUser({ id: user.id, name: user.email, email: user.email })
 
-      // Use database function to get team members (bypasses RLS)
+      // ✅ Use database function to get team members (bypasses RLS)
       const { data: members, error: membersError } = await supabase
         .rpc('get_organization_team_members', { org_id: orgId })
 
@@ -113,7 +113,8 @@ export default function TeamPage() {
       console.log('❌ Members error:', membersError)
 
       if (membersError) {
-        throw membersError
+        console.error('Function error details:', membersError)
+        throw new Error(`Failed to load team members: ${membersError.message || 'Unknown error'}`)
       }
 
       if (members && members.length > 0) {
@@ -129,10 +130,13 @@ export default function TeamPage() {
         
         console.log('✅ Transformed members:', transformedMembers)
         setTeamMembers(transformedMembers)
+      } else {
+        console.log('ℹ️ No members returned from function')
+        setTeamMembers([])
       }
 
       // Get pending invitations
-      const { data: invites } = await supabase
+      const { data: invites, error: invitesError } = await supabase
         .from('invitations')
         .select(`
           *,
@@ -142,7 +146,9 @@ export default function TeamPage() {
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
 
-      if (invites) {
+      if (invitesError) {
+        console.error('Error loading invitations:', invitesError)
+      } else if (invites) {
         setInvitations(invites)
       }
     } catch (error: any) {
