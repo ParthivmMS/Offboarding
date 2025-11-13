@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2 } from 'lucide-react'
 import { getCurrentOrganization } from '@/lib/workspace'
+import { trackInviteSent } from '@/lib/analytics'
 
 interface InviteUserModalProps {
   onClose: () => void
@@ -121,6 +122,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
                      (typeof window !== 'undefined' ? window.location.origin : 'https://offboarding.vercel.app')
       const inviteLink = `${appUrl}/accept-invite?token=${token}`
+      
       // Get current user name for email
       const { data: userData } = await supabase
         .from('users')
@@ -155,6 +157,10 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       } else {
         console.log('✅ Email sent successfully!')
       }
+
+      // 🎉 TRACK INVITE EVENT
+      trackInviteSent(role)
+      console.log('📊 Tracked invite event:', role)
 
       alert(`✅ Invitation sent to ${email}!`)
       onSuccess()
