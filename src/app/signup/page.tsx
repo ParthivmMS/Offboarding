@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast'
 import { Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { trackSignup } from '@/lib/analytics'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -103,6 +104,10 @@ export default function SignUpPage() {
         console.error('User creation error:', userError)
         throw new Error('Failed to create user profile')
       }
+
+      // 🎉 TRACK SIGNUP EVENT
+      trackSignup('email')
+      console.log('📊 Tracked signup event')
 
       toast({
         title: 'Success!',
