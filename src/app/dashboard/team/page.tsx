@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Mail, User, Shield, Trash2, UserMinus, Users, RefreshCw, AlertCircle, UserPlus, CheckCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import InviteUserModal from '@/components/dashboard/InviteUserModal'
+import { toast } from 'sonner'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 
 interface TeamMember {
   id: string
@@ -43,6 +45,21 @@ export default function TeamPage() {
   const [currentOrgId, setCurrentOrgId] = useState<string>('')
   const [currentOrgName, setCurrentOrgName] = useState<string>('Your Organization')
   const [showInviteModal, setShowInviteModal] = useState(false)
+  
+  // Confirmation dialog states
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean
+    title: string
+    description: string
+    onConfirm: () => void
+    variant?: 'default' | 'destructive'
+  }>({
+    open: false,
+    title: '',
+    description: '',
+    onConfirm: () => {}
+  })
+  
   const router = useRouter()
   const supabase = createClient()
 
@@ -62,7 +79,6 @@ export default function TeamPage() {
         return
       }
 
-      // Get current user data FIRST
       const { data: userData, error: userError } = await supabase
         .from('users')
         .select('current_organization_id')
@@ -77,7 +93,6 @@ export default function TeamPage() {
 
       const orgId = userData.current_organization_id
 
-      // Get organization details
       const { data: orgData, error: orgError } = await supabase
         .from('organizations')
         .select('id, name')
@@ -93,7 +108,6 @@ export default function TeamPage() {
       setCurrentOrgId(orgData.id)
       setCurrentOrgName(orgData.name)
 
-      // Get user's role
       const { data: membershipData } = await supabase
         .from('organization_members')
         .select('role')
@@ -105,15 +119,10 @@ export default function TeamPage() {
       setCurrentUserRole(membershipData?.role || '')
       setCurrentUser({ id: user.id, name: user.email, email: user.email })
 
-      // ✅ Use database function to get team members (bypasses RLS)
       const { data: members, error: membersError } = await supabase
         .rpc('get_organization_team_members', { org_id: orgId })
 
-      console.log('👥 Members from function:', members)
-      console.log('❌ Members error:', membersError)
-
       if (membersError) {
-        console.error('Function error details:', membersError)
         throw new Error(`Failed to load team members: ${membersError.message || 'Unknown error'}`)
       }
 
@@ -128,14 +137,11 @@ export default function TeamPage() {
           created_at: m.joined_at
         }))
         
-        console.log('✅ Transformed members:', transformedMembers)
         setTeamMembers(transformedMembers)
       } else {
-        console.log('ℹ️ No members returned from function')
         setTeamMembers([])
       }
 
-      // Get pending invitations
       const { data: invites, error: invitesError } = await supabase
         .from('invitations')
         .select(`
@@ -160,45 +166,63 @@ export default function TeamPage() {
   }
 
   async function removeMember(memberId: string, memberEmail: string) {
-    if (!confirm(`Are you sure you want to remove ${memberEmail} from the team?`)) {
-      return
-    }
+    setConfirmDialog({
+      open: true,
+      title: 'Remove Team Member',
+      description: `Are you sure you want to remove ${memberEmail} from the team? They will lose access to all organization data.`,
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('organization_members')
+            .update({ is_active: false })
+            .eq('id', memberId)
 
-    try {
-      const { error } = await supabase
-        .from('organization_members')
-        .update({ is_active: false })
-        .eq('id', memberId)
+          if (error) throw error
 
-      if (error) throw error
-
-      alert('✅ Member removed successfully')
-      loadTeamData()
-    } catch (error: any) {
-      console.error('Error removing member:', error)
-      alert(`❌ Failed to remove member: ${error.message}`)
-    }
+          toast.success('Member removed successfully', {
+            description: `${memberEmail} has been removed from the team`
+          })
+          loadTeamData()
+        } catch (error: any) {
+          console.error('Error removing member:', error)
+          toast.error('Failed to remove member', {
+            description: error.message
+          })
+        }
+        setConfirmDialog({ ...confirmDialog, open: false })
+      }
+    })
   }
 
-  async function cancelInvitation(invitationId: string) {
-    if (!confirm('Are you sure you want to cancel this invitation?')) {
-      return
-    }
+  async function cancelInvitation(invitationId: string, email: string) {
+    setConfirmDialog({
+      open: true,
+      title: 'Cancel Invitation',
+      description: `Are you sure you want to cancel the invitation for ${email}?`,
+      variant: 'destructive',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase
+            .from('invitations')
+            .update({ status: 'cancelled' })
+            .eq('id', invitationId)
 
-    try {
-      const { error } = await supabase
-        .from('invitations')
-        .update({ status: 'cancelled' })
-        .eq('id', invitationId)
+          if (error) throw error
 
-      if (error) throw error
-
-      alert('✅ Invitation cancelled successfully')
-      loadTeamData()
-    } catch (error: any) {
-      console.error('Error cancelling invitation:', error)
-      alert(`❌ Failed to cancel invitation: ${error.message}`)
-    }
+          toast.success('Invitation cancelled', {
+            description: `Invitation for ${email} has been cancelled`
+          })
+          loadTeamData()
+        } catch (error: any) {
+          console.error('Error cancelling invitation:', error)
+          toast.error('Failed to cancel invitation', {
+            description: error.message
+          })
+        }
+        setConfirmDialog({ ...confirmDialog, open: false })
+      }
+    })
   }
 
   function getRoleBadgeColor(role: string) {
@@ -253,7 +277,6 @@ export default function TeamPage() {
     }
   }
 
-  // 🎨 Loading State with Skeleton
   if (loading) {
     return (
       <div className="container mx-auto p-6 max-w-6xl">
@@ -299,7 +322,6 @@ export default function TeamPage() {
     )
   }
 
-  // ❌ Error State
   if (error) {
     return (
       <div className="container mx-auto p-6 max-w-6xl">
@@ -329,7 +351,6 @@ export default function TeamPage() {
 
   return (
     <div className="container mx-auto p-6 max-w-6xl">
-      {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Team Members</h1>
@@ -348,7 +369,6 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* Current User Info */}
       <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200">
         <CardContent className="pt-6">
           <div className="flex items-center gap-4">
@@ -372,7 +392,6 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {/* Team Purpose Explanation */}
       <Card className="mb-6 border-2 border-amber-200 bg-gradient-to-br from-amber-50 to-orange-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-amber-900">
@@ -422,7 +441,6 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {/* Active Team Members */}
       <Card className="mb-6 border-2 border-slate-200">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -494,7 +512,6 @@ export default function TeamPage() {
         </CardContent>
       </Card>
 
-      {/* Pending Invitations */}
       {canInviteUsers() && (
         <Card className="border-2 border-slate-200">
           <CardHeader>
@@ -540,7 +557,7 @@ export default function TeamPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => cancelInvitation(invite.id)}
+                        onClick={() => cancelInvitation(invite.id, invite.email)}
                         className="text-red-600 hover:text-red-700 hover:bg-red-50"
                         title="Cancel invitation"
                       >
@@ -555,16 +572,29 @@ export default function TeamPage() {
         </Card>
       )}
 
-      {/* Invite Modal */}
       {showInviteModal && (
         <InviteUserModal
           onClose={() => setShowInviteModal(false)}
           onSuccess={() => {
             setShowInviteModal(false)
+            toast.success('Invitation sent!', {
+              description: 'The user will receive an email invitation'
+            })
             loadTeamData()
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        onConfirm={confirmDialog.onConfirm}
+        variant={confirmDialog.variant}
+        confirmText="Confirm"
+        cancelText="Cancel"
+      />
     </div>
   )
 }
