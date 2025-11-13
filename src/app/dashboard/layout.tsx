@@ -19,6 +19,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { useState } from 'react'
 import OrganizationSwitcher from '@/components/dashboard/OrganizationSwitcher'
+import { Toaster } from 'sonner'
 
 export default function DashboardLayout({
   children,
@@ -38,7 +39,7 @@ export default function DashboardLayout({
     { name: 'AI Insights', href: '/dashboard/insights', icon: Sparkles, highlight: true },
     { name: 'Security', href: '/dashboard/security', icon: Shield, highlight: true },
     { name: 'Team', href: '/dashboard/team', icon: Users },
-    { name: 'Help', href: '/dashboard/help', icon: HelpCircle, highlight: true }, // 📚 NEW!
+    { name: 'Help', href: '/dashboard/help', icon: HelpCircle, highlight: true },
     { name: 'Settings', href: '/dashboard/settings', icon: Settings },
   ]
 
@@ -187,6 +188,20 @@ export default function DashboardLayout({
           {children}
         </div>
       </main>
+
+      {/* Toast Notifications - Beautiful alerts! */}
+      <Toaster 
+        position="top-center" 
+        richColors 
+        closeButton
+        toastOptions={{
+          style: {
+            padding: '16px',
+            fontSize: '14px',
+          },
+          className: 'toast-custom',
+        }}
+      />
     </div>
   )
 }
