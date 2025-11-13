@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast'
 import { Users, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { trackLogin } from '@/lib/analytics'
 
 export default function LoginPage() {
   const { toast } = useToast()
@@ -57,6 +58,10 @@ export default function LoginPage() {
       }
 
       console.log('Login successful:', data)
+
+      // 🎉 TRACK LOGIN EVENT
+      trackLogin('email')
+      console.log('📊 Tracked login event')
 
       // Force immediate redirect
       window.location.href = '/dashboard'
