@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
 import { ArrowLeft, AlertCircle } from 'lucide-react'
+import { trackOffboardingCreated } from '@/lib/analytics'
 
 export default function NewOffboardingPage() {
   const router = useRouter()
@@ -225,6 +226,10 @@ export default function NewOffboardingPage() {
         throw new Error('Failed to create tasks')
       }
 
+      // 🎉 TRACK OFFBOARDING CREATED EVENT
+      trackOffboardingCreated()
+      console.log('📊 Tracked offboarding created event')
+
       // Send email notifications to departments
       try {
         // Get unique departments from tasks
@@ -429,7 +434,7 @@ export default function NewOffboardingPage() {
                   placeholder="jane@company.com"
                   value={formData.manager_email}
                   onChange={(e) => setFormData({ ...formData, manager_email: e.target.value })}
-                />
+                  />
               </div>
             </div>
 
