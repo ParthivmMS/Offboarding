@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { initializePaddle, Paddle } from '@paddle/paddle-js'
 import { Button } from '@/components/ui/button'
@@ -9,7 +9,7 @@ import { Check, Loader2, Sparkles, Shield, Users as UsersIcon } from 'lucide-rea
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-export default function PricingPage() {
+function PricingContent() {
   const [paddle, setPaddle] = useState<Paddle | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
@@ -372,4 +372,17 @@ export default function PricingPage() {
       </footer>
     </div>
   )
-      }
+}
+
+// Wrap in Suspense for useSearchParams
+export default function PricingPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+      </div>
+    }>
+      <PricingContent />
+    </Suspense>
+  )
+}
