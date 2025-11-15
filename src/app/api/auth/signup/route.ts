@@ -23,21 +23,25 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create Supabase client for API route
+    // Create admin client for privileged operations
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Create regular client for auth
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    // Step 1: Create Supabase Auth user FIRST
-    // This triggers handle_new_user() which creates the public.users record
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // Step 1: Create Supabase Auth user
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: {
-          name, // This gets passed to trigger as raw_user_meta_data
-        },
+      email_confirm: true, // Auto-confirm email
+      user_metadata: {
+        name,
       },
     })
 
@@ -58,9 +62,34 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id
 
-    // Step 2: Create organization using SECURITY DEFINER function
-    // This bypasses RLS since it's called with elevated privileges
-    const { data: organization, error: orgError } = await supabase.rpc(
+    // Step 2: Create user record in public.users
+    // Note: organization_id will be set by create_organization_with_admin function
+    const { error: userInsertError } = await supabaseAdmin
+      .from('users')
+      .insert({
+        id: userId,
+        email: email,
+        name: name,
+        password_hash: 'supabase_auth',
+        is_active: true,
+        role: 'user',
+        // organization_id and current_organization_id will be set after org creation
+      })
+
+    if (userInsertError) {
+      console.error('User insert error:', userInsertError)
+      
+      // Cleanup: Delete auth user if user insert fails
+      await supabaseAdmin.auth.admin.deleteUser(userId)
+      
+      return NextResponse.json(
+        { error: `Database error: ${userInsertError.message}` },
+        { status: 500 }
+      )
+    }
+
+    // Step 3: Create organization using SECURITY DEFINER function
+    const { data: organization, error: orgError } = await supabaseAdmin.rpc(
       'create_organization_with_admin',
       {
         org_name: organizationName,
@@ -71,12 +100,9 @@ export async function POST(request: Request) {
     if (orgError) {
       console.error('Organization creation error:', orgError)
       
-      // Cleanup: Delete auth user if org creation fails
-      const supabaseAdmin = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
+      // Cleanup: Delete auth user and public.users record
       await supabaseAdmin.auth.admin.deleteUser(userId)
+      await supabaseAdmin.from('users').delete().eq('id', userId)
       
       return NextResponse.json(
         { error: 'Failed to create organization' },
@@ -84,16 +110,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 3: Get the created user data
-    const { data: user, error: userError } = await supabase
+    // Step 4: Get the created user data to return
+    const { data: user } = await supabaseAdmin
       .from('users')
       .select('*')
       .eq('id', userId)
       .single()
-
-    if (userError) {
-      console.error('User fetch error:', userError)
-    }
 
     return NextResponse.json({
       success: true,
