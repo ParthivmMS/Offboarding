@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
-import { ArrowLeft, Mail, User, Building, Save, LogOut } from 'lucide-react'
+import { ArrowLeft, Mail, User, Building, Save, LogOut, CreditCard } from 'lucide-react' // ✅ ADD CreditCard
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -154,6 +154,38 @@ export default function SettingsPage() {
               <Save className="w-4 h-4 mr-2" />
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* ✅ NEW: Billing & Subscription */}
+        <Card className="border-blue-200 bg-blue-50/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="w-5 h-5" />
+              Billing & Subscription
+            </CardTitle>
+            <CardDescription>Manage your subscription and payment details</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-white rounded-lg border">
+              <div>
+                <p className="font-medium text-slate-900">Current Plan</p>
+                <p className="text-sm text-slate-500">Free Trial or No Active Subscription</p>
+              </div>
+              <Button 
+                onClick={() => router.push('/pricing')}
+                className="gap-2"
+              >
+                <CreditCard className="w-4 h-4" />
+                View Plans & Pricing
+              </Button>
+            </div>
+
+            <div className="text-sm text-slate-600 space-y-2">
+              <p>🎉 <strong>Special Offer:</strong> First 50 customers get 25% off for life!</p>
+              <p>💰 Plans starting at $79/month</p>
+              <p>✨ 14-day free trial, no credit card required</p>
+            </div>
           </CardContent>
         </Card>
 
