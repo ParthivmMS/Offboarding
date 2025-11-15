@@ -99,6 +99,7 @@ export async function POST(request: Request) {
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'signup',
       email: email,
+      password: password, // ✅ ADD THIS LINE
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?orgName=${encodeURIComponent(organizationName)}`
       }
