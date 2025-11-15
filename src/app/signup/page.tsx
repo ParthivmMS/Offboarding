@@ -50,59 +50,42 @@ export default function SignUpPage() {
     }
 
     try {
-      const supabase = createClient()
-
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            name: formData.name,
-            organization_name: formData.organizationName,
-          },
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-        }
+      // Call the API route to handle signup
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          organizationName: formData.organizationName,
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+        }),
       })
 
-      if (authError) {
-        throw new Error(authError.message)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create account')
       }
 
-      if (!authData.user) {
-        throw new Error('Signup failed')
-      }
+      // Now sign in the user on the client side
+      const supabase = createClient()
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      })
 
-      // Create organization in our database
-      const { data: org, error: orgError } = await supabase
-        .from('organizations')
-        .insert({
-          name: formData.organizationName,
+      if (signInError) {
+        console.error('Sign in error:', signInError)
+        // Still redirect to login page so they can log in manually
+        toast({
+          title: 'Account created!',
+          description: 'Please log in to continue',
         })
-        .select()
-        .single()
-
-      if (orgError) {
-        console.error('Org creation error:', orgError)
-        throw new Error('Failed to create organization')
-      }
-
-      // Create user in our users table
-      const { error: userError } = await supabase
-        .from('users')
-        .insert({
-          id: authData.user.id,
-          email: formData.email,
-          name: formData.name,
-          password_hash: 'supabase_auth', // Placeholder since we use Supabase Auth
-          organization_id: org.id,
-          role: 'admin', // First user is admin
-          is_active: true,
-        })
-
-      if (userError) {
-        console.error('User creation error:', userError)
-        throw new Error('Failed to create user profile')
+        router.push('/login')
+        return
       }
 
       // 🎉 TRACK SIGNUP EVENT
@@ -114,11 +97,10 @@ export default function SignUpPage() {
         description: 'Account created successfully',
       })
 
-      // Force hard reload to dashboard
-      setTimeout(() => {
-        window.location.href = '/dashboard'
-      }, 500)
+      // Redirect to dashboard
+      router.push('/dashboard')
     } catch (error: any) {
+      console.error('Signup error:', error)
       toast({
         title: 'Error',
         description: error.message || 'Failed to create account',
