@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -26,81 +25,77 @@ export async function POST(request: Request) {
 
     const supabase = await createClient()
 
-    // Check if email already exists
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('id')
-      .eq('email', email)
-      .single()
+    // Step 1: Create Supabase Auth user FIRST
+    // This triggers handle_new_user() which creates the public.users record
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          name, // This gets passed to trigger as raw_user_meta_data
+        },
+      },
+    })
 
-    if (existingUser) {
+    if (authError) {
+      console.error('Auth signup error:', authError)
       return NextResponse.json(
-        { error: 'Email already registered' },
+        { error: authError.message },
         { status: 400 }
       )
     }
 
-    // Hash password
-    const passwordHash = await bcrypt.hash(password, 10)
-
-    // Create organization
-    const { data: organization, error: orgError } = await supabase
-      .from('organizations')
-      .insert({
-        name: organizationName,
-      })
-      .select()
-      .single()
-
-    if (orgError) {
-      console.error('Organization creation error:', orgError)
-      return NextResponse.json(
-        { error: 'Failed to create organization' },
-        { status: 500 }
-      )
-    }
-
-    // Create user (admin role)
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .insert({
-        email,
-        name,
-        password_hash: passwordHash,
-        organization_id: organization.id,
-        role: 'admin',
-      })
-      .select()
-      .single()
-
-    if (userError) {
-      console.error('User creation error:', userError)
-      // Cleanup: delete organization if user creation fails
-      await supabase.from('organizations').delete().eq('id', organization.id)
+    if (!authData.user) {
       return NextResponse.json(
         { error: 'Failed to create user' },
         { status: 500 }
       )
     }
 
-    // Create session (using Supabase Auth)
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const userId = authData.user.id
 
-    if (signInError) {
-      console.error('Sign in error:', signInError)
+    // Step 2: Create organization using SECURITY DEFINER function
+    // This bypasses RLS since it's called with elevated privileges
+    const { data: organization, error: orgError } = await supabase.rpc(
+      'create_organization_with_admin',
+      {
+        org_name: organizationName,
+        admin_user_id: userId,
+      }
+    )
+
+    if (orgError) {
+      console.error('Organization creation error:', orgError)
+      
+      // Cleanup: Delete auth user if org creation fails
+      await supabase.auth.admin.deleteUser(userId)
+      
+      return NextResponse.json(
+        { error: 'Failed to create organization' },
+        { status: 500 }
+      )
+    }
+
+    // Step 3: Get the created user data
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single()
+
+    if (userError) {
+      console.error('User fetch error:', userError)
     }
 
     return NextResponse.json({
       success: true,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        organization_id: user.organization_id,
+        id: userId,
+        email: authData.user.email,
+        name: name,
+        role: 'admin',
+        organization_id: organization?.id,
+        current_organization_id: organization?.id,
       },
     })
   } catch (error) {
