@@ -104,7 +104,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 4: Create organization using SECURITY DEFINER function
+    // Step 3: Create organization using SECURITY DEFINER function
     const { data: organization, error: orgError } = await supabaseAdmin.rpc(
       'create_organization_with_admin',
       {
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 5: Get the created user data to return
+    // Step 4: Get the created user data to return
     const { data: user } = await supabaseAdmin
       .from('users')
       .select('*')
@@ -140,8 +140,8 @@ export async function POST(request: Request) {
         email: authData.user.email,
         name: name,
         role: 'admin',
-        organization_id: organization?.id,
-        current_organization_id: organization?.id,
+        organization_id: organization.id,
+        current_organization_id: organization.id,
       },
     })
   } catch (error) {
