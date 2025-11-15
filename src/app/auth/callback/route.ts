@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${requestUrl.origin}/reset-password`)
   }
 
-  // CASE 2: OAuth code exchange (alternative password reset method)
+  // CASE 2: OAuth code exchange (alternative password reset method + email verification)
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
@@ -46,6 +46,30 @@ export async function GET(request: Request) {
     // Check if this is a recovery flow
     if (type === 'recovery') {
       return NextResponse.redirect(`${requestUrl.origin}/reset-password`)
+    }
+
+    // 🔒 NEW: Check if this is email verification for new signup
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      // Get user record to see if they need org setup
+      const { data: userData } = await supabase
+        .from('users')
+        .select('organization_id, current_organization_id')
+        .eq('id', user.id)
+        .single()
+
+      // If no organization, they just verified email - need to create org
+      if (!userData?.organization_id && !userData?.current_organization_id) {
+        return NextResponse.redirect(`${requestUrl.origin}/setup-organization`)
+      }
+
+      // User has org - activate them and go to dashboard
+      await supabase
+        .from('users')
+        .update({ is_active: true })
+        .eq('id', user.id)
+        
+      return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
     }
   }
 
@@ -72,6 +96,7 @@ export async function GET(request: Request) {
           name: name || user.email?.split('@')[0],
           role: invitation.role,
           organization_id: invitation.organization_id,
+          current_organization_id: invitation.organization_id,
           is_active: true,
           password_hash: 'supabase_auth',
         })
