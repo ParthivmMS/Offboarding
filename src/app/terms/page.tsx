@@ -27,7 +27,7 @@ export default function TermsPage() {
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <div className="bg-white rounded-lg shadow-sm p-8 md:p-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Terms of Service</h1>
-          <p className="text-gray-600 mb-8">Last updated: November 13, 2025</p>
+          <p className="text-gray-600 mb-8">Last updated: November 15, 2024</p>
 
           <div className="prose prose-slate max-w-none">
             <p className="text-lg text-gray-700 mb-8">
@@ -127,8 +127,47 @@ export default function TermsPage() {
               </p>
             </section>
 
+            <section className="mb-8" id="refund-policy">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">8. Refund Policy</h2>
+              <p className="text-gray-700 mb-4">
+                We offer a 14-day free trial with no credit card required. During the trial period, you may cancel at any time with no charges.
+              </p>
+              
+              <p className="text-gray-700 mb-2">
+                <strong>8.1 Monthly Subscriptions:</strong>
+              </p>
+              <p className="text-gray-700 mb-4">
+                You may cancel your monthly subscription at any time. Upon cancellation, you will retain access to the Service until the end of your current billing period. No refunds are provided for partial months.
+              </p>
+
+              <p className="text-gray-700 mb-2">
+                <strong>8.2 Annual Subscriptions:</strong>
+              </p>
+              <p className="text-gray-700 mb-4">
+                Annual subscriptions may be cancelled within 30 days of the initial purchase for a full refund. After 30 days, no refunds will be provided for the unused portion of the subscription period, but you will retain access until the subscription end date.
+              </p>
+
+              <p className="text-gray-700 mb-2">
+                <strong>8.3 How to Cancel:</strong>
+              </p>
+              <p className="text-gray-700 mb-4">
+                You may cancel your subscription at any time through your account settings or by contacting us at parthivmssince2005@gmail.com.
+              </p>
+
+              <p className="text-gray-700 mb-2">
+                <strong>8.4 Refund Processing:</strong>
+              </p>
+              <p className="text-gray-700 mb-4">
+                Approved refunds will be processed within 5-10 business days to your original payment method. For refund requests, please contact us at parthivmssince2005@gmail.com with your order details.
+              </p>
+
+              <p className="text-gray-700">
+                <strong>8.5 Exceptions:</strong> Refunds may be denied for accounts found to be in violation of these Terms of Service or engaging in fraudulent activity.
+              </p>
+            </section>
+
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">8. Service Availability</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">9. Service Availability</h2>
               <p className="text-gray-700 mb-4">
                 We strive to provide 99.9% uptime but do not guarantee uninterrupted access. We may:
               </p>
@@ -140,7 +179,7 @@ export default function TermsPage() {
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">9. Disclaimers</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">10. Disclaimers</h2>
               <p className="text-gray-700 mb-4">
                 THE SERVICE IS PROVIDED "AS IS" WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED. WE DO NOT WARRANT THAT:
               </p>
@@ -152,7 +191,7 @@ export default function TermsPage() {
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">10. Limitation of Liability</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">11. Limitation of Liability</h2>
               <p className="text-gray-700 mb-4">
                 TO THE MAXIMUM EXTENT PERMITTED BY LAW, OFFBOARDPRO SHALL NOT BE LIABLE FOR:
               </p>
@@ -164,14 +203,14 @@ export default function TermsPage() {
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">11. Indemnification</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">12. Indemnification</h2>
               <p className="text-gray-700">
                 You agree to indemnify and hold OffboardPro harmless from any claims, damages, or expenses arising from your use of the Service or violation of these Terms.
               </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">12. Termination</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">13. Termination</h2>
               <p className="text-gray-700 mb-4">
                 We may terminate or suspend your account immediately, without notice, for:
               </p>
@@ -186,26 +225,26 @@ export default function TermsPage() {
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">13. Changes to Terms</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">14. Changes to Terms</h2>
               <p className="text-gray-700">
                 We may update these Terms from time to time. We will notify you of material changes via email or through the Service. Your continued use after changes constitutes acceptance of the new Terms.
               </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">14. Governing Law</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">15. Governing Law</h2>
               <p className="text-gray-700">
                 These Terms are governed by the laws of the jurisdiction in which OffboardPro operates, without regard to conflict of law provisions.
               </p>
             </section>
 
             <section className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">15. Contact Us</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">16. Contact Us</h2>
               <p className="text-gray-700 mb-4">
                 If you have questions about these Terms, please contact us:
               </p>
               <ul className="list-none text-gray-700 space-y-2">
-                <li><strong>Email:</strong> support@offboardpro.com</li>
+                <li><strong>Email:</strong> parthivmssince2005@gmail.com</li>
                 <li><strong>Website:</strong> https://offboarding.vercel.app</li>
               </ul>
             </section>
@@ -223,7 +262,7 @@ export default function TermsPage() {
       <footer className="bg-white border-t mt-12">
         <div className="container mx-auto px-4 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-gray-600">
-            <p>© 2025 OffboardPro. All rights reserved.</p>
+            <p>© 2024 OffboardPro. All rights reserved.</p>
             <div className="flex gap-6">
               <Link href="/terms" className="hover:text-blue-600">Terms</Link>
               <Link href="/privacy" className="hover:text-blue-600">Privacy</Link>
