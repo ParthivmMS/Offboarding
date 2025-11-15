@@ -47,9 +47,10 @@ export async function POST(request: Request) {
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,
+      email_confirm: false, // 🔒 Requires email verification
       user_metadata: {
         name,
+        organization_name: organizationName,
       },
     })
 
@@ -78,7 +79,7 @@ export async function POST(request: Request) {
         email: email,
         name: name,
         password_hash: 'supabase_auth',
-        is_active: true,
+        is_active: false, // 🔒 Will be activated after email verification
         role: 'user',
       }, {
         onConflict: 'id',
@@ -94,43 +95,66 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 4: Create organization
-    const { data: orgResult, error: orgError } = await supabaseAdmin.rpc(
-      'create_organization_with_admin',
-      {
-        org_name: organizationName,
-        creator_user_id: userId,
+    // Step 4: Generate verification link
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'signup',
+      email: email,
+      options: {
+        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?orgName=${encodeURIComponent(organizationName)}`
       }
-    )
+    })
 
-    if (orgError || !orgResult || orgResult.length === 0 || !orgResult[0].success) {
-      const errorMsg = orgError?.message || orgResult?.[0]?.error_message || 'Failed to create organization'
-      console.error('Organization creation error:', errorMsg)
-      
+    if (linkError || !linkData?.properties?.action_link) {
+      console.error('Link generation error:', linkError)
+      // Cleanup
       await supabaseAdmin.auth.admin.deleteUser(userId)
       await supabaseAdmin.from('users').delete().eq('id', userId)
-      
       return NextResponse.json(
-        { error: errorMsg },
+        { error: 'Failed to generate verification link' },
         { status: 500 }
       )
     }
 
-    const organization = {
-      id: orgResult[0].organization_id,
-      name: orgResult[0].organization_name
+    const verificationLink = linkData.properties.action_link
+    console.log('🔗 Verification link generated:', verificationLink)
+
+    // Step 5: Send verification email via Brevo
+    try {
+      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'email_verification',
+          to: email,
+          data: {
+            name: name,
+            verificationLink: verificationLink,
+            organizationName: organizationName,
+          }
+        })
+      })
+
+      if (!emailResponse.ok) {
+        console.error('Email send failed:', await emailResponse.text())
+        throw new Error('Failed to send verification email')
+      }
+
+      console.log('✅ Verification email sent to:', email)
+    } catch (emailError) {
+      console.error('Email send error:', emailError)
+      // Cleanup
+      await supabaseAdmin.auth.admin.deleteUser(userId)
+      await supabaseAdmin.from('users').delete().eq('id', userId)
+      return NextResponse.json(
+        { error: 'Failed to send verification email. Please try again.' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({
       success: true,
-      user: {
-        id: userId,
-        email: authData.user.email,
-        name: name,
-        role: 'admin',
-        organization_id: organization.id,
-        current_organization_id: organization.id,
-      },
+      message: 'Account created! Please check your email to verify.',
+      requiresVerification: true,
     })
   } catch (error) {
     console.error('Signup error:', error)
