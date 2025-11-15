@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -23,7 +23,11 @@ export async function POST(request: Request) {
       )
     }
 
-    const supabase = await createClient()
+    // Create Supabase client for API route
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
 
     // Step 1: Create Supabase Auth user FIRST
     // This triggers handle_new_user() which creates the public.users record
@@ -68,7 +72,11 @@ export async function POST(request: Request) {
       console.error('Organization creation error:', orgError)
       
       // Cleanup: Delete auth user if org creation fails
-      await supabase.auth.admin.deleteUser(userId)
+      const supabaseAdmin = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      await supabaseAdmin.auth.admin.deleteUser(userId)
       
       return NextResponse.json(
         { error: 'Failed to create organization' },
