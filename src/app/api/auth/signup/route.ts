@@ -35,7 +35,21 @@ export async function POST(request: Request) {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     )
 
-    // Step 1: Create Supabase Auth user
+    // Step 1: Check if user already exists
+    const { data: existingUser } = await supabaseAdmin
+      .from('users')
+      .select('id, email')
+      .eq('email', email)
+      .single()
+
+    if (existingUser) {
+      return NextResponse.json(
+        { error: 'An account with this email already exists' },
+        { status: 400 }
+      )
+    }
+
+    // Step 2: Create Supabase Auth user
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -62,18 +76,20 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id
 
-    // Step 2: Create user record in public.users
-    // Note: organization_id will be set by create_organization_with_admin function
+    // Step 3: Create user record in public.users
+    // Use UPSERT to handle cases where trigger already created the record
     const { error: userInsertError } = await supabaseAdmin
       .from('users')
-      .insert({
+      .upsert({
         id: userId,
         email: email,
         name: name,
         password_hash: 'supabase_auth',
         is_active: true,
         role: 'user',
-        // organization_id and current_organization_id will be set after org creation
+      }, {
+        onConflict: 'id', // If user already exists, update it
+        ignoreDuplicates: false
       })
 
     if (userInsertError) {
@@ -88,7 +104,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 3: Create organization using SECURITY DEFINER function
+    // Step 4: Create organization using SECURITY DEFINER function
     const { data: organization, error: orgError } = await supabaseAdmin.rpc(
       'create_organization_with_admin',
       {
@@ -110,7 +126,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 4: Get the created user data to return
+    // Step 5: Get the created user data to return
     const { data: user } = await supabaseAdmin
       .from('users')
       .select('*')
