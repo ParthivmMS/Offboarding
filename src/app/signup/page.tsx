@@ -66,39 +66,22 @@ export default function SignUpPage() {
 
       const data = await response.json()
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create account')
-      }
+if (!response.ok) {
+  throw new Error(data.error || 'Failed to create account')
+}
 
-      // Now sign in the user on the client side
-      const supabase = createClient()
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
-        password: formData.password,
-      })
+// 🔒 Email verification required - don't sign in yet
+trackSignup('email')
+console.log('📊 Tracked signup event')
 
-      if (signInError) {
-        console.error('Sign in error:', signInError)
-        // Still redirect to login page so they can log in manually
-        toast({
-          title: 'Account created!',
-          description: 'Please log in to continue',
-        })
-        router.push('/login')
-        return
-      }
+toast({
+  title: '✅ Account Created!',
+  description: 'Please check your email to verify your account and complete setup. Check your spam folder if you don\'t see it.',
+  duration: 10000, // Show for 10 seconds
+})
 
-      // 🎉 TRACK SIGNUP EVENT
-      trackSignup('email')
-      console.log('📊 Tracked signup event')
-
-      toast({
-        title: 'Success!',
-        description: 'Account created successfully',
-      })
-
-      // Redirect to dashboard
-      router.push('/dashboard')
+// Don't redirect - user needs to verify email first
+setLoading(false)
     } catch (error: any) {
       console.error('Signup error:', error)
       toast({
