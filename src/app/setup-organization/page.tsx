@@ -1,24 +1,32 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useToast } from '@/hooks/use-toast'
-import { Users } from 'lucide-react'
+import { Users, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { Suspense } from 'react'
 
-export default function SetupOrganizationPage() {
+function SetupOrganizationContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
   const [orgName, setOrgName] = useState('')
-  const [userName, setUserName] = useState('')
 
   useEffect(() => {
-    // Check if user is authenticated
+    // Pre-fill org name from URL if available
+    const orgNameFromUrl = searchParams.get('orgName')
+    if (orgNameFromUrl) {
+      setOrgName(decodeURIComponent(orgNameFromUrl))
+    }
+
+    // Check if user is authenticated and needs org setup
     const checkUser = async () => {
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
@@ -31,27 +39,34 @@ export default function SetupOrganizationPage() {
       // Check if they already have an org
       const { data: userData } = await supabase
         .from('users')
-        .select('organization_id, name')
+        .select('organization_id, current_organization_id')
         .eq('id', user.id)
         .single()
 
-      if (userData?.organization_id) {
+      if (userData?.organization_id || userData?.current_organization_id) {
         // Already has org, go to dashboard
         router.push('/dashboard')
         return
       }
 
-      // Pre-fill user name
-      if (userData?.name) {
-        setUserName(userData.name)
-      }
+      setChecking(false)
     }
 
     checkUser()
-  }, [router])
+  }, [router, searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    if (!orgName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'Please enter your company name',
+        variant: 'destructive',
+      })
+      return
+    }
+
     setLoading(true)
 
     try {
@@ -72,26 +87,39 @@ export default function SetupOrganizationPage() {
         }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const data = await response.json()
         throw new Error(data.error || 'Failed to create organization')
       }
 
       toast({
-        title: 'Success!',
-        description: 'Organization created successfully',
+        title: '🎉 Success!',
+        description: 'Your organization has been created. Welcome to OffboardPro!',
       })
 
-      router.push('/dashboard')
+      // Redirect to dashboard
+      setTimeout(() => {
+        router.push('/dashboard')
+      }, 500)
     } catch (error: any) {
+      console.error('Org creation error:', error)
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to create organization',
         variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
+  }
+
+  if (checking) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    )
   }
 
   return (
@@ -124,16 +152,39 @@ export default function SetupOrganizationPage() {
                   value={orgName}
                   onChange={(e) => setOrgName(e.target.value)}
                   required
+                  disabled={loading}
                 />
+                <p className="text-sm text-slate-500">
+                  This will be visible to your team members
+                </p>
               </div>
 
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Creating...' : 'Create Organization'}
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating Organization...
+                  </>
+                ) : (
+                  'Create Organization & Continue'
+                )}
               </Button>
             </form>
           </CardContent>
         </Card>
       </div>
     </div>
+  )
+}
+
+export default function SetupOrganizationPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    }>
+      <SetupOrganizationContent />
+    </Suspense>
   )
 }
