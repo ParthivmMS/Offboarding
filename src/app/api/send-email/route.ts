@@ -9,7 +9,7 @@ import {
   sendChurnAlertEmail,
   sendExitSurveyInvitationEmail
 } from '@/lib/email'
-import { sendEmail as sendBrevoEmail } from '@/lib/email-brevo'
+import { sendBrevoEmail } from '@/lib/email-brevo' // ✅ FIXED IMPORT
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,8 +20,7 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case 'email_verification':
-        // Handle email verification directly here using Brevo
-        const subject = 'Verify Your Email - OffboardPro'
+        // Handle email verification using Brevo
         const htmlContent = `
           <!DOCTYPE html>
           <html>
@@ -164,8 +163,8 @@ export async function POST(request: NextRequest) {
         `
         
         result = await sendBrevoEmail({
-          to,
-          subject,
+          to: [to], // ✅ Wrap in array
+          subject: 'Verify Your Email - OffboardPro',
           htmlContent,
         })
         break
