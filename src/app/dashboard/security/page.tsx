@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge'
 import { Shield, AlertTriangle, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
+import FeatureGate from '@/components/FeatureGate'
+import { trackSecurityScan } from '@/lib/analytics'
 
 interface OAuthConnection {
   id: string
@@ -41,10 +43,35 @@ export default function SecurityScannerPage() {
     recentScans: 0,
   })
   const [revokingAll, setRevokingAll] = useState(false)
+  const [userPlan, setUserPlan] = useState<string>('starter')
 
   useEffect(() => {
     loadSecurityData()
+    loadUserPlan()
   }, [])
+
+  async function loadUserPlan() {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('subscription_plan')
+        .eq('id', user.id)
+        .single()
+
+      if (userData?.subscription_plan) {
+        setUserPlan(userData.subscription_plan)
+      }
+
+      // Track page view
+      trackSecurityScan()
+    } catch (err) {
+      console.error('Error loading user plan:', err)
+    }
+  }
 
   async function loadSecurityData() {
     try {
@@ -167,196 +194,198 @@ export default function SecurityScannerPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Shield className="w-8 h-8 text-blue-600" />
-            Security Scanner
-          </h1>
-          <p className="text-slate-600 mt-1">
-            Monitor and revoke OAuth access for departing employees
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={loadSecurityData}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
-          </Button>
-          {stats.activeConnections > 0 && (
-            <Button 
-              variant="destructive" 
-              onClick={handleRevokeAll}
-              disabled={revokingAll}
-            >
-              {revokingAll ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Revoking...
-                </>
-              ) : (
-                <>
-                  <Shield className="w-4 h-4 mr-2" />
-                  Revoke All Active
-                </>
-              )}
+    <FeatureGate feature="security" userPlan={userPlan}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
+              <Shield className="w-8 h-8 text-blue-600" />
+              Security Scanner
+            </h1>
+            <p className="text-slate-600 mt-1">
+              Monitor and revoke OAuth access for departing employees
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={loadSecurityData}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
             </Button>
-          )}
+            {stats.activeConnections > 0 && (
+              <Button 
+                variant="destructive" 
+                onClick={handleRevokeAll}
+                disabled={revokingAll}
+              >
+                {revokingAll ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Revoking...
+                  </>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4 mr-2" />
+                    Revoke All Active
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600">Total Apps</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats.totalApps}</div>
-          </CardContent>
-        </Card>
+        {/* Stats Cards */}
+        <div className="grid md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600">Total Apps</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold">{stats.totalApps}</div>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600">Active Risk</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-red-600">{stats.activeConnections}</div>
-            <p className="text-xs text-slate-500 mt-1">Need revocation</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600">Active Risk</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-red-600">{stats.activeConnections}</div>
+              <p className="text-xs text-slate-500 mt-1">Need revocation</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600">Secured</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-green-600">{stats.revokedConnections}</div>
-            <p className="text-xs text-slate-500 mt-1">Access revoked</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600">Secured</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-600">{stats.revokedConnections}</div>
+              <p className="text-xs text-slate-500 mt-1">Access revoked</p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-slate-600">Recent Scans</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{stats.recentScans}</div>
-            <p className="text-xs text-slate-500 mt-1">Last 7 days</p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-slate-600">Recent Scans</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-blue-600">{stats.recentScans}</div>
+              <p className="text-xs text-slate-500 mt-1">Last 7 days</p>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Active Connections Alert */}
-      {stats.activeConnections > 0 && (
-        <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-6">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-6 h-6 text-red-600 mt-1" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-red-900 mb-1">
-                  ⚠️ Security Risk Detected
-                </h3>
-                <p className="text-red-700 text-sm">
-                  {stats.activeConnections} active OAuth connection{stats.activeConnections > 1 ? 's' : ''} found for departing employees. 
-                  These connections pose a security risk and should be revoked immediately.
-                </p>
+        {/* Active Connections Alert */}
+        {stats.activeConnections > 0 && (
+          <Card className="border-red-200 bg-red-50">
+            <CardContent className="p-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-6 h-6 text-red-600 mt-1" />
+                <div className="flex-1">
+                  <h3 className="font-semibold text-red-900 mb-1">
+                    ⚠️ Security Risk Detected
+                  </h3>
+                  <p className="text-red-700 text-sm">
+                    {stats.activeConnections} active OAuth connection{stats.activeConnections > 1 ? 's' : ''} found for departing employees. 
+                    These connections pose a security risk and should be revoked immediately.
+                  </p>
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Connections List */}
+        <Card>
+          <CardHeader>
+            <CardTitle>OAuth Connections</CardTitle>
+            <CardDescription>
+              All detected SaaS application access for departing employees
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {connections.length === 0 ? (
+              <div className="text-center py-12">
+                <Shield className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-slate-900 mb-2">No Connections Found</h3>
+                <p className="text-slate-600 mb-4">
+                  No OAuth connections have been scanned yet.
+                </p>
+                <Link href="/dashboard/offboardings">
+                  <Button>View Offboardings</Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {connections.map((connection) => {
+                  const StatusIcon = statusIcons[connection.status] || Shield
+                  
+                  return (
+                    <div 
+                      key={connection.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition"
+                    >
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
+                          <Shield className="w-6 h-6 text-slate-600" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-slate-900">{connection.app_name}</h4>
+                            <Badge className={statusColors[connection.status]}>
+                              <StatusIcon className="w-3 h-3 mr-1" />
+                              {connection.status.replace('_', ' ')}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-slate-600">
+                            {connection.employee_email}
+                            {connection.last_used_date && (
+                              <span className="text-slate-400 ml-2">
+                                • Last used {new Date(connection.last_used_date).toLocaleDateString()}
+                              </span>
+                            )}
+                          </p>
+                          {connection.scopes && connection.scopes.length > 0 && (
+                            <div className="flex gap-1 mt-2 flex-wrap">
+                              {connection.scopes.slice(0, 3).map((scope, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {scope}
+                                </Badge>
+                              ))}
+                              {connection.scopes.length > 3 && (
+                                <Badge variant="outline" className="text-xs">
+                                  +{connection.scopes.length - 3} more
+                                </Badge>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {connection.status === 'active' && (
+                          <Button 
+                            size="sm" 
+                            variant="destructive"
+                            onClick={() => {/* TODO: Single revoke */}}
+                          >
+                            Revoke
+                          </Button>
+                        )}
+                        <Link href={`/dashboard/offboardings/${connection.offboarding_id}`}>
+                          <Button size="sm" variant="outline">
+                            View Details
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
-
-      {/* Connections List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>OAuth Connections</CardTitle>
-          <CardDescription>
-            All detected SaaS application access for departing employees
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {connections.length === 0 ? (
-            <div className="text-center py-12">
-              <Shield className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No Connections Found</h3>
-              <p className="text-slate-600 mb-4">
-                No OAuth connections have been scanned yet.
-              </p>
-              <Link href="/dashboard/offboardings">
-                <Button>View Offboardings</Button>
-              </Link>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {connections.map((connection) => {
-                const StatusIcon = statusIcons[connection.status] || Shield
-                
-                return (
-                  <div 
-                    key={connection.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition"
-                  >
-                    <div className="flex items-center gap-4 flex-1">
-                      <div className="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <Shield className="w-6 h-6 text-slate-600" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-semibold text-slate-900">{connection.app_name}</h4>
-                          <Badge className={statusColors[connection.status]}>
-                            <StatusIcon className="w-3 h-3 mr-1" />
-                            {connection.status.replace('_', ' ')}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-slate-600">
-                          {connection.employee_email}
-                          {connection.last_used_date && (
-                            <span className="text-slate-400 ml-2">
-                              • Last used {new Date(connection.last_used_date).toLocaleDateString()}
-                            </span>
-                          )}
-                        </p>
-                        {connection.scopes && connection.scopes.length > 0 && (
-                          <div className="flex gap-1 mt-2 flex-wrap">
-                            {connection.scopes.slice(0, 3).map((scope, idx) => (
-                              <Badge key={idx} variant="outline" className="text-xs">
-                                {scope}
-                              </Badge>
-                            ))}
-                            {connection.scopes.length > 3 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{connection.scopes.length - 3} more
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {connection.status === 'active' && (
-                        <Button 
-                          size="sm" 
-                          variant="destructive"
-                          onClick={() => {/* TODO: Single revoke */}}
-                        >
-                          Revoke
-                        </Button>
-                      )}
-                      <Link href={`/dashboard/offboardings/${connection.offboarding_id}`}>
-                        <Button size="sm" variant="outline">
-                          View Details
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+      </div>
+    </FeatureGate>
   )
-              }
+}
