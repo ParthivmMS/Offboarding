@@ -1,187 +1,200 @@
-// src/app/auth/callback/route.ts
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { NextRequest } from 'next/server'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
-  const token = requestUrl.searchParams.get('token')
-  const name = requestUrl.searchParams.get('name')
-  const type = requestUrl.searchParams.get('type')
   const code = requestUrl.searchParams.get('code')
-  const token_hash = requestUrl.searchParams.get('token_hash')
   const error_code = requestUrl.searchParams.get('error_code')
   const error_description = requestUrl.searchParams.get('error_description')
 
-  console.log('🔍 Callback invoked')
+  console.log('🔍 OAuth Callback - Start', {
+    hasCode: !!code,
+    hasError: !!error_code,
+    path: requestUrl.pathname
+  })
 
-  const supabase = await createClient()
-
-  // Handle errors
+  // Handle errors from OAuth provider
   if (error_code) {
-    console.error('❌ Auth callback error:', error_description)
-    return NextResponse.redirect(`${requestUrl.origin}/login?error=${error_description}`)
-  }
-
-  // CASE 1: Password Recovery with token_hash
-  if (token_hash && type === 'recovery') {
-    console.log('🔑 Processing password recovery')
-    const { error } = await supabase.auth.verifyOtp({
-      token_hash,
-      type: 'recovery',
+    console.error('❌ OAuth Error:', error_description)
+    // Use meta refresh for error redirect too
+    return new Response(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta http-equiv="refresh" content="0;url=${requestUrl.origin}/login?error=${encodeURIComponent(error_description || 'Authentication failed')}">
+        </head>
+        <body>
+          <p>Authentication error. Redirecting...</p>
+        </body>
+      </html>
+    `, {
+      status: 200,
+      headers: { 'Content-Type': 'text/html' }
     })
-    
-    if (error) {
-      console.error('❌ Token verification error:', error)
-      return NextResponse.redirect(`${requestUrl.origin}/login?error=Invalid or expired reset link`)
-    }
-    
-    console.log('✅ Password recovery verified')
-    return NextResponse.redirect(`${requestUrl.origin}/reset-password`)
   }
 
-  // CASE 2: OAuth code exchange
   if (code) {
+    const supabase = await createClient()
+
     console.log('🔄 Exchanging OAuth code for session')
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
     
+    // Exchange code for session
+    const { data: { user }, error } = await supabase.auth.exchangeCodeForSession(code)
+
     if (error) {
       console.error('❌ Code exchange error:', error)
-      return NextResponse.redirect(`${requestUrl.origin}/login?error=Invalid or expired link`)
-    }
-    
-    console.log('✅ Code exchanged successfully')
-    
-    if (type === 'recovery') {
-      return NextResponse.redirect(`${requestUrl.origin}/reset-password`)
+      return new Response(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta http-equiv="refresh" content="0;url=${requestUrl.origin}/login?error=Authentication failed">
+          </head>
+          <body>
+            <p>Authentication failed. Redirecting...</p>
+          </body>
+        </html>
+      `, {
+        status: 200,
+        headers: { 'Content-Type': 'text/html' }
+      })
     }
 
-    // Get current user
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
-    
-    console.log('👤 Current user:', { id: user?.id, email: user?.email })
-    
     if (user) {
-      // Check for existing users with this email
-      console.log('🔍 Checking for existing users')
-      const { data: existingUsers } = await supabase
-        .from('users')
-        .select('id, organization_id, current_organization_id, role, email')
-        .eq('email', user.email)
-        .order('created_at', { ascending: true })
+      console.log('✅ User authenticated:', user.email)
 
-      console.log('📊 Existing users:', existingUsers?.length)
-
-      let targetUser = null
-
-      if (existingUsers && existingUsers.length > 0) {
-        // Find user with organization
-        targetUser = existingUsers.find(u => u.organization_id || u.current_organization_id)
-        
-        if (!targetUser) {
-          targetUser = existingUsers[0]
-        }
-
-        // Account linking
-        if (targetUser.id !== user.id && targetUser.organization_id) {
-          console.log('🔗 Linking accounts')
-          console.log(`  Google ID: ${user.id}`)
-          console.log(`  Existing ID: ${targetUser.id}`)
-          
-          await supabase
-            .from('users')
-            .upsert({
-              id: user.id,
-              email: user.email,
-              name: user.user_metadata?.name || user.email?.split('@')[0],
-              organization_id: targetUser.organization_id,
-              current_organization_id: targetUser.current_organization_id,
-              role: targetUser.role,
-              is_active: true,
-              password_hash: 'supabase_auth',
-            }, {
-              onConflict: 'id'
-            })
-
-          if (targetUser.organization_id) {
-            await supabase
-              .from('organization_members')
-              .upsert({
-                user_id: user.id,
-                organization_id: targetUser.organization_id,
-                role: targetUser.role || 'admin',
-                is_active: true,
-              }, {
-                onConflict: 'user_id,organization_id'
-              })
-          }
-
-          console.log('✅ Accounts linked, redirecting to dashboard')
-          return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
-        }
-      }
-
-      // Check user's organization status
+      // Check if user has organization
       const { data: userData } = await supabase
         .from('users')
         .select('organization_id, current_organization_id')
         .eq('id', user.id)
         .single()
 
-      console.log('📊 User data:', userData)
+      console.log('📊 User data:', {
+        hasOrgId: !!userData?.organization_id,
+        hasCurrentOrgId: !!userData?.current_organization_id
+      })
 
-      if (!userData?.organization_id && !userData?.current_organization_id) {
-        console.log('⚠️ No organization, redirecting to setup')
-        return NextResponse.redirect(`${requestUrl.origin}/setup-organization`)
-      }
+      // Determine redirect URL
+      const hasOrganization = userData?.organization_id || userData?.current_organization_id
+      const redirectUrl = hasOrganization 
+        ? `${requestUrl.origin}/dashboard`
+        : `${requestUrl.origin}/setup-organization`
 
-      // User has org
-      console.log('✅ User has organization, redirecting to dashboard')
-      await supabase
-        .from('users')
-        .update({ is_active: true })
-        .eq('id', user.id)
-        
-      return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+      console.log('🎯 Redirecting to:', redirectUrl)
+
+      // Use HTML meta refresh + JavaScript redirect
+      // This gives browser time to process Set-Cookie headers
+      return new Response(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta http-equiv="refresh" content="1;url=${redirectUrl}">
+            <title>OffboardPro - Authenticating</title>
+            <style>
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+              }
+              body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+              }
+              .container {
+                text-align: center;
+                padding: 40px;
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(10px);
+                border-radius: 20px;
+                box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+                border: 1px solid rgba(255, 255, 255, 0.18);
+                max-width: 400px;
+              }
+              .spinner {
+                border: 4px solid rgba(255, 255, 255, 0.3);
+                border-top: 4px solid white;
+                border-radius: 50%;
+                width: 50px;
+                height: 50px;
+                animation: spin 1s linear infinite;
+                margin: 0 auto 30px;
+              }
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+              h1 {
+                font-size: 24px;
+                font-weight: 600;
+                margin-bottom: 12px;
+              }
+              p {
+                font-size: 16px;
+                opacity: 0.9;
+                line-height: 1.5;
+              }
+              .logo {
+                width: 60px;
+                height: 60px;
+                background: white;
+                border-radius: 12px;
+                margin: 0 auto 20px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 30px;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="logo">👥</div>
+              <div class="spinner"></div>
+              <h1>✅ Authentication Successful!</h1>
+              <p>Setting up your account...</p>
+              <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">
+                You'll be redirected to ${hasOrganization ? 'your dashboard' : 'complete setup'} in a moment.
+              </p>
+            </div>
+            <script>
+              // Fallback JavaScript redirect after 1 second
+              setTimeout(function() {
+                window.location.href = '${redirectUrl}';
+              }, 1000);
+            </script>
+          </body>
+        </html>
+      `, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-store, no-cache, must-revalidate',
+        }
+      })
     }
   }
 
-  // CASE 3: Team Invitation
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  if (user && token) {
-    console.log('📧 Processing team invitation')
-    const { data: invitation } = await supabase
-      .from('invitations')
-      .select('*')
-      .eq('token', token)
-      .eq('status', 'pending')
-      .maybeSingle()
-
-    if (invitation) {
-      await supabase
-        .from('users')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          name: name || user.email?.split('@')[0],
-          role: invitation.role,
-          organization_id: invitation.organization_id,
-          current_organization_id: invitation.organization_id,
-          is_active: true,
-          password_hash: 'supabase_auth',
-        })
-
-      await supabase
-        .from('invitations')
-        .update({
-          status: 'accepted',
-          accepted_at: new Date().toISOString(),
-        })
-        .eq('id', invitation.id)
-    }
-  }
-
-  console.log('🔚 Redirecting to dashboard')
-  return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+  // Fallback redirect if no code
+  console.log('⚠️ No code found, redirecting to login')
+  return new Response(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta http-equiv="refresh" content="0;url=${requestUrl.origin}/login">
+      </head>
+      <body>
+        <p>Redirecting to login...</p>
+      </body>
+    </html>
+  `, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html' }
+  })
 }
