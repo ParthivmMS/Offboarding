@@ -50,13 +50,22 @@ export default function FeatureGate({
   const currentLimits = getPlanLimits(userPlan)
   
   // Find which plan unlocks this feature
-  let unlockPlan = 'Professional'
-  const featureKey = `has${feature.charAt(0).toUpperCase() + feature.slice(1).toLowerCase().replace('_', '')}`
-  
-  // Check if Professional plan has this feature
-  if (!PLAN_LIMITS.professional[featureKey as keyof typeof PLAN_LIMITS.professional]) {
-    unlockPlan = 'Enterprise'
-  }
+let unlockPlan = 'Professional'
+
+// Map features to their unlock plans
+const featureUnlockPlan: Record<string, string> = {
+  'ai': 'Professional',
+  'ai_insights': 'Professional',
+  'security': 'Professional',
+  'security_scanner': 'Professional',
+  'surveys': 'Professional',
+  'exit_surveys': 'Professional',
+  'api': 'Enterprise',
+  'priority_support': 'Enterprise',
+  'custom_branding': 'Enterprise',
+}
+
+unlockPlan = featureUnlockPlan[feature.toLowerCase()] || 'Professional'
 
   return (
     <div className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center bg-gradient-to-br from-slate-50 to-slate-100">
