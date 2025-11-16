@@ -1,8 +1,19 @@
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { CheckCircle, Clock, Users, Shield, Sparkles, AlertTriangle, ArrowRight, Check, Zap, Star } from "lucide-react";
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
+import { CheckCircle, Clock, Users, Shield, Sparkles, AlertTriangle, ArrowRight, Check, Zap, Star } from "lucide-react"
 
-export default function Home() {
+export default async function Home() {
+  // Check if user is authenticated
+  const supabase = await createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  
+  if (session) {
+    // User is logged in, redirect to dashboard
+    redirect('/dashboard')
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
@@ -334,5 +345,5 @@ export default function Home() {
         </div>
       </footer>
     </div>
-  );
+  )
 }
