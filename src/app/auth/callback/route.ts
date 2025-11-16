@@ -1,8 +1,9 @@
 // src/app/auth/callback/route.ts
-import { createClientForRouteHandler } from '@/lib/supabase/server'
-import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
-export async function GET(request: NextRequest) {
+export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const token = requestUrl.searchParams.get('token')
   const name = requestUrl.searchParams.get('name')
@@ -14,14 +15,13 @@ export async function GET(request: NextRequest) {
 
   console.log('🔍 Callback invoked')
 
+  const supabase = await createClient()
+
   // Handle errors
   if (error_code) {
     console.error('❌ Auth callback error:', error_description)
     return NextResponse.redirect(`${requestUrl.origin}/login?error=${error_description}`)
   }
-
-  // Create supabase client that can properly set cookies in response
-  const { supabase, response } = await createClientForRouteHandler(request)
 
   // CASE 1: Password Recovery with token_hash
   if (token_hash && type === 'recovery') {
@@ -49,6 +49,8 @@ export async function GET(request: NextRequest) {
       console.error('❌ Code exchange error:', error)
       return NextResponse.redirect(`${requestUrl.origin}/login?error=Invalid or expired link`)
     }
+    
+    console.log('✅ Code exchanged successfully')
     
     if (type === 'recovery') {
       return NextResponse.redirect(`${requestUrl.origin}/reset-password`)
@@ -115,14 +117,7 @@ export async function GET(request: NextRequest) {
           }
 
           console.log('✅ Accounts linked, redirecting to dashboard')
-          const redirectResponse = NextResponse.redirect(`${requestUrl.origin}/dashboard`)
-          
-          // Copy cookies from our response to redirect response
-          response.cookies.getAll().forEach(cookie => {
-            redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
-          })
-          
-          return redirectResponse
+          return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
         }
       }
 
@@ -137,14 +132,7 @@ export async function GET(request: NextRequest) {
 
       if (!userData?.organization_id && !userData?.current_organization_id) {
         console.log('⚠️ No organization, redirecting to setup')
-        const redirectResponse = NextResponse.redirect(`${requestUrl.origin}/setup-organization`)
-        
-        // Copy cookies to redirect response
-        response.cookies.getAll().forEach(cookie => {
-          redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
-        })
-        
-        return redirectResponse
+        return NextResponse.redirect(`${requestUrl.origin}/setup-organization`)
       }
 
       // User has org
@@ -154,14 +142,7 @@ export async function GET(request: NextRequest) {
         .update({ is_active: true })
         .eq('id', user.id)
         
-      const redirectResponse = NextResponse.redirect(`${requestUrl.origin}/dashboard`)
-      
-      // Copy cookies to redirect response
-      response.cookies.getAll().forEach(cookie => {
-        redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
-      })
-      
-      return redirectResponse
+      return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
     }
   }
 
@@ -202,12 +183,5 @@ export async function GET(request: NextRequest) {
   }
 
   console.log('🔚 Redirecting to dashboard')
-  const redirectResponse = NextResponse.redirect(`${requestUrl.origin}/dashboard`)
-  
-  // Copy cookies to redirect response
-  response.cookies.getAll().forEach(cookie => {
-    redirectResponse.cookies.set(cookie.name, cookie.value, cookie)
-  })
-  
-  return redirectResponse
+  return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
 }
