@@ -1,3 +1,4 @@
+// src/middleware.ts
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function middleware(request: NextRequest) {
@@ -10,6 +11,18 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/static') ||
     pathname.includes('.')
   ) {
+    return NextResponse.next()
+  }
+
+  // ⚠️ CRITICAL: Allow auth callback routes to pass through without auth check
+  // These routes handle OAuth code exchange and MUST complete before auth is checked
+  if (
+    pathname.startsWith('/auth/callback') ||
+    pathname.startsWith('/setup-organization') ||
+    pathname.startsWith('/onboarding') ||
+    pathname.startsWith('/accept-invite')
+  ) {
+    console.log('Allowing auth/setup route:', pathname)
     return NextResponse.next()
   }
 
