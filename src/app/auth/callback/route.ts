@@ -1,3 +1,4 @@
+// src/app/auth/callback/route.ts
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
@@ -31,11 +32,10 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${requestUrl.origin}/login?error=Invalid or expired reset link`)
     }
     
-    // Successfully verified - redirect to reset password page
     return NextResponse.redirect(`${requestUrl.origin}/reset-password`)
   }
 
-  // CASE 2: OAuth code exchange (alternative password reset method + email verification)
+  // CASE 2: OAuth code exchange (Google OAuth + password reset + email verification)
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
@@ -43,22 +43,86 @@ export async function GET(request: Request) {
       return NextResponse.redirect(`${requestUrl.origin}/login?error=Invalid or expired link`)
     }
     
-    // Check if this is a recovery flow
     if (type === 'recovery') {
       return NextResponse.redirect(`${requestUrl.origin}/reset-password`)
     }
 
-    // 🔒 NEW: Check if this is email verification for new signup
+    // Get current user (from Google OAuth or email verification)
     const { data: { user } } = await supabase.auth.getUser()
+    
     if (user) {
-      // Get user record to see if they need org setup
+      // 🔍 ACCOUNT LINKING: Check if a user with this email already exists
+      const { data: existingUsers, error: queryError } = await supabase
+        .from('users')
+        .select('id, organization_id, current_organization_id, role, email')
+        .eq('email', user.email)
+        .order('created_at', { ascending: true }) // Get oldest first
+
+      if (queryError) {
+        console.error('Error checking existing user:', queryError)
+      }
+
+      let targetUser = null
+
+      if (existingUsers && existingUsers.length > 0) {
+        // Find the user with an organization (the original email/password account)
+        targetUser = existingUsers.find(u => u.organization_id || u.current_organization_id)
+        
+        if (!targetUser) {
+          // No user with org found, use the oldest one
+          targetUser = existingUsers[0]
+        }
+
+        // If current Google auth user ID is different from the target user ID
+        if (targetUser.id !== user.id) {
+          console.log(`🔗 Linking Google OAuth account to existing email account`)
+          console.log(`  Email: ${user.email}`)
+          console.log(`  Google Auth ID: ${user.id}`)
+          console.log(`  Existing User ID: ${targetUser.id}`)
+          
+          // Copy organization data from email account to Google OAuth account
+          await supabase
+            .from('users')
+            .upsert({
+              id: user.id, // Google OAuth auth ID
+              email: user.email,
+              name: user.user_metadata?.name || user.email?.split('@')[0],
+              organization_id: targetUser.organization_id,
+              current_organization_id: targetUser.current_organization_id,
+              role: targetUser.role,
+              is_active: true,
+              password_hash: 'supabase_auth',
+            }, {
+              onConflict: 'id'
+            })
+
+          // Add Google user to organization_members if target has org
+          if (targetUser.organization_id) {
+            await supabase
+              .from('organization_members')
+              .upsert({
+                user_id: user.id, // Google OAuth auth ID
+                organization_id: targetUser.organization_id,
+                role: targetUser.role || 'admin',
+                is_active: true,
+              }, {
+                onConflict: 'user_id,organization_id'
+              })
+          }
+
+          console.log(`✅ Successfully linked accounts. Redirecting to dashboard.`)
+          return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+        }
+      }
+
+      // Check current user's organization status
       const { data: userData } = await supabase
         .from('users')
         .select('organization_id, current_organization_id')
         .eq('id', user.id)
         .single()
 
-      // If no organization, they just verified email - need to create org
+      // If no organization, redirect to setup
       if (!userData?.organization_id && !userData?.current_organization_id) {
         return NextResponse.redirect(`${requestUrl.origin}/setup-organization`)
       }
@@ -78,7 +142,6 @@ export async function GET(request: Request) {
 
   // CASE 3: Team Invitation - Process invitation acceptance
   if (user && token) {
-    // Get invitation
     const { data: invitation } = await supabase
       .from('invitations')
       .select('*')
@@ -87,7 +150,6 @@ export async function GET(request: Request) {
       .maybeSingle()
 
     if (invitation) {
-      // Create/update user profile
       await supabase
         .from('users')
         .upsert({
@@ -101,7 +163,6 @@ export async function GET(request: Request) {
           password_hash: 'supabase_auth',
         })
 
-      // Accept invitation
       await supabase
         .from('invitations')
         .update({
