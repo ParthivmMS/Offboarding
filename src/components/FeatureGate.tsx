@@ -4,7 +4,7 @@ import { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Lock, Sparkles, Shield, Mail, Crown } from 'lucide-react'
-import { hasFeatureAccess, getFeatureDisplayName, getPlanLimits } from '@/lib/subscription'
+import { hasFeatureAccess, getFeatureDisplayName, getPlanLimits, PLAN_LIMITS } from '@/lib/subscription'
 
 interface FeatureGateProps {
   feature: string
@@ -51,7 +51,10 @@ export default function FeatureGate({
   
   // Find which plan unlocks this feature
   let unlockPlan = 'Professional'
-  if (!PLAN_LIMITS.professional[`has${feature.charAt(0).toUpperCase() + feature.slice(1)}`]) {
+  const featureKey = `has${feature.charAt(0).toUpperCase() + feature.slice(1).toLowerCase().replace('_', '')}`
+  
+  // Check if Professional plan has this feature
+  if (!PLAN_LIMITS.professional[featureKey as keyof typeof PLAN_LIMITS.professional]) {
     unlockPlan = 'Enterprise'
   }
 
