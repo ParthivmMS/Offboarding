@@ -25,6 +25,8 @@ import {
   ArrowRight
 } from 'lucide-react'
 import Link from 'next/link'
+import FeatureGate from '@/components/FeatureGate'
+import { trackAIInsightsViewed } from '@/lib/analytics'
 
 interface Insight {
   id: string
@@ -57,10 +59,35 @@ export default function InsightsPage() {
   const [insights, setInsights] = useState<Insight[]>([])
   const [metrics, setMetrics] = useState<ExitMetrics | null>(null)
   const [organizationId, setOrganizationId] = useState<string>('')
+  const [userPlan, setUserPlan] = useState<string>('starter')
 
   useEffect(() => {
     loadInsights()
+    loadUserPlan()
   }, [])
+
+  async function loadUserPlan() {
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data: userData } = await supabase
+        .from('users')
+        .select('subscription_plan')
+        .eq('id', user.id)
+        .single()
+
+      if (userData?.subscription_plan) {
+        setUserPlan(userData.subscription_plan)
+      }
+
+      // Track page view
+      trackAIInsightsViewed()
+    } catch (err) {
+      console.error('Error loading user plan:', err)
+    }
+  }
 
   async function loadInsights() {
     try {
@@ -824,5 +851,6 @@ export default function InsightsPage() {
         </Card>
       )}
     </div>
+    </FeatureGate>
   )
 }
