@@ -7,8 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
-import { ArrowLeft, Mail, User, Building, Save, LogOut, CreditCard } from 'lucide-react' // ✅ ADD CreditCard
+import { ArrowLeft, Mail, User, Building, Save, LogOut, CreditCard, CheckCircle, X, Sparkles } from 'lucide-react'
+import { trackUpgradeClicked } from '@/lib/analytics'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -28,18 +30,25 @@ export default function SettingsPage() {
 
   async function loadUser() {
     const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
     
-    if (!user) {
+    if (!authUser) {
       router.push('/login')
       return
     }
+
+    // Get full user data including subscription info
+    const { data: userData } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', authUser.id)
+      .single()
     
-    setUser(user)
+    setUser(userData || authUser)
     setFormData({
-      name: user.user_metadata?.name || '',
-      email: user.email || '',
-      organization: user.user_metadata?.organization_name || '',
+      name: userData?.name || authUser.user_metadata?.name || '',
+      email: authUser.email || '',
+      organization: authUser.user_metadata?.organization_name || '',
     })
     setLoading(false)
   }
@@ -67,7 +76,6 @@ export default function SettingsPage() {
 
       if (dbError) {
         console.error('Error updating users table:', dbError)
-        // Don't throw - auth update was successful
       }
 
       toast({
@@ -98,6 +106,11 @@ export default function SettingsPage() {
       </div>
     )
   }
+
+  // Get plan display name
+  const planName = user?.subscription_plan 
+    ? user.subscription_plan.charAt(0).toUpperCase() + user.subscription_plan.slice(1)
+    : 'Free Trial'
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -157,34 +170,164 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* ✅ NEW: Billing & Subscription */}
-        <Card className="border-blue-200 bg-blue-50/50">
+        {/* Billing & Subscription */}
+        <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CreditCard className="w-5 h-5" />
+              <CreditCard className="w-5 h-5 text-blue-600" />
               Billing & Subscription
             </CardTitle>
             <CardDescription>Manage your subscription and payment details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-white rounded-lg border">
-              <div>
-                <p className="font-medium text-slate-900">Current Plan</p>
-                <p className="text-sm text-slate-500">Free Trial or No Active Subscription</p>
+            {/* Current Plan Display */}
+            <div className="flex items-center justify-between p-4 bg-white rounded-lg border-2 border-blue-200">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="font-semibold text-slate-900">Current Plan</p>
+                  <Badge className={
+                    user?.subscription_plan === 'enterprise' 
+                      ? 'bg-amber-100 text-amber-700 border-amber-300'
+                      : user?.subscription_plan === 'professional'
+                      ? 'bg-purple-100 text-purple-700 border-purple-300'
+                      : 'bg-blue-100 text-blue-700 border-blue-300'
+                  }>
+                    {planName}
+                  </Badge>
+                </div>
+                <p className="text-sm text-slate-600">
+                  {user?.subscription_status === 'trialing' 
+                    ? '🎉 You\'re on a free trial!' 
+                    : user?.subscription_status === 'active'
+                    ? '✅ Subscription active'
+                    : '💡 Start your free trial today'}
+                </p>
+                
+                {/* Trial Status */}
+                {user?.subscription_status === 'trialing' && user?.trial_ends_at && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⏰ Trial ends: {new Date(user.trial_ends_at).toLocaleDateString()}
+                  </p>
+                )}
               </div>
+              
               <Button 
-                onClick={() => router.push('/pricing')}
-                className="gap-2"
+                onClick={() => {
+                  trackUpgradeClicked('settings_page')
+                  router.push('/pricing')
+                }}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 gap-2"
               >
                 <CreditCard className="w-4 h-4" />
-                View Plans & Pricing
+                {user?.subscription_status ? 'Manage Billing' : 'View Plans'}
               </Button>
             </div>
 
-            <div className="text-sm text-slate-600 space-y-2">
-              <p>🎉 <strong>Special Offer:</strong> First 50 customers get 25% off for life!</p>
-              <p>💰 Plans starting at $79/month</p>
-              <p>✨ 14-day free trial, no credit card required</p>
+            {/* Plan Features Summary */}
+            <div className="bg-white rounded-lg border p-4">
+              <p className="font-medium text-slate-900 mb-3">Your Plan Includes:</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                {user?.subscription_plan === 'enterprise' ? (
+                  <>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Unlimited Team Members</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Unlimited Offboardings</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>AI Insights</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Security Scanner</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>API Access</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Priority Support</span>
+                    </div>
+                  </>
+                ) : user?.subscription_plan === 'professional' ? (
+                  <>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Up to 100 Team Members</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>50 Offboardings/month</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>AI Insights</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Security Scanner</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <X className="w-4 h-4" />
+                      <span>API Access</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <X className="w-4 h-4" />
+                      <span>Priority Support</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>Up to 25 Team Members</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-700">
+                      <CheckCircle className="w-4 h-4" />
+                      <span>10 Offboardings/month</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <X className="w-4 h-4" />
+                      <span>AI Insights</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <X className="w-4 h-4" />
+                      <span>Security Scanner</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <X className="w-4 h-4" />
+                      <span>API Access</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <X className="w-4 h-4" />
+                      <span>Priority Support</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Special Offer Banner */}
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-lg p-4">
+              <div className="flex items-start gap-3">
+                <Sparkles className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm space-y-1">
+                  <p className="font-semibold text-purple-900">
+                    🎉 Founding Member Offer!
+                  </p>
+                  <p className="text-purple-700">
+                    First 50 customers get <strong>25% off for life</strong>
+                  </p>
+                  <p className="text-purple-600 text-xs">
+                    💰 Save $600/year • ✨ 14-day free trial
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -248,19 +391,19 @@ export default function SettingsPage() {
             <div className="flex justify-between py-2 border-b">
               <span className="text-sm font-medium text-slate-600">Account Created</span>
               <span className="text-sm text-slate-900">
-                {new Date(user?.created_at).toLocaleDateString()}
+                {user?.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
               </span>
             </div>
             <div className="flex justify-between py-2">
               <span className="text-sm font-medium text-slate-600">Last Sign In</span>
               <span className="text-sm text-slate-900">
-                {new Date(user?.last_sign_in_at).toLocaleDateString()}
+                {user?.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'N/A'}
               </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Danger Zone - WITH LOGOUT */}
+        {/* Danger Zone */}
         <Card className="border-red-200">
           <CardHeader>
             <CardTitle className="text-red-600">Danger Zone</CardTitle>
@@ -280,4 +423,4 @@ export default function SettingsPage() {
       </div>
     </div>
   )
-}
+                }
