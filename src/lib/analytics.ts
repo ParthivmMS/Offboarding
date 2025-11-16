@@ -107,3 +107,21 @@ export const trackAIInsightsViewed = () => {
     label: 'insights_page'
   })
 }
+
+// 🆕 NEW: Track upgrade clicks
+export const trackUpgradeClicked = (source: string, plan?: string) => {
+  event({
+    action: 'upgrade_clicked',
+    category: 'conversion',
+    label: `${source}${plan ? `_${plan}` : ''}`
+  })
+}
+
+// 🆕 NEW: Track feature gate shown
+export const trackFeatureGateShown = (feature: string) => {
+  event({
+    action: 'feature_gate_shown',
+    category: 'engagement',
+    label: feature
+  })
+}
