@@ -318,9 +318,10 @@ export default function InsightsPage() {
   const criticalInsights = activeInsights.filter(i => i.priority_level === 'critical' || i.priority_level === 'high')
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <FeatureGate feature="ai" userPlan={userPlan}>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
             <Sparkles className="w-8 h-8 text-purple-600" />
