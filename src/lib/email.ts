@@ -1,3 +1,4 @@
+// /src/lib/email.ts
 import { createClient } from '@/lib/supabase/client'
 import { sendBrevoEmail } from './email-brevo'
 
@@ -1156,35 +1157,6 @@ export async function sendExitSurveyInvitationEmail({
               </p>
               
               <p style="margin-top: 24px; font-size: 16px; text-align: center;">
-                Thanks for trying OffboardPro!<br>
-                <strong style="color: #2563eb;">The OffboardPro Team</strong>
-              </p>
-            </div>
-            <div class="footer">
-              <p style="margin: 0;">© 2024 <strong>OffboardPro</strong>. All rights reserved.</p>
-              <p style="margin: 8px 0 0 0;">
-                You're receiving this because your trial period ended.<br>
-                <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/settings" style="color: #2563eb;">Manage your account</a>
-              </p>
-            </div>
-          </div>
-        </body>
-        </html>
-      `,
-    })
-
-    if (!result.success) {
-      console.error('Error sending trial ended email:', result.error)
-      return result
-    }
-
-    console.log('✅ Trial ended email sent successfully to:', to)
-    return result
-  } catch (error) {
-    console.error('Error sending trial ended email:', error)
-    return { success: false, error }
-  }
-}: 16px;">
                 Best regards,<br>
                 <strong style="color: #2563eb;">The ${organizationName} Team</strong>
               </p>
@@ -1225,7 +1197,7 @@ export async function sendTrialEndedEmail({
 
     const result = await sendBrevoEmail({
       to,
-      subject: '⏰ Your OffboardPro Trial Has Ended',
+      subject: '⏰ Your OffboardPro Trial Has Ended - Save 20%!',
       htmlContent: `
         <!DOCTYPE html>
         <html>
@@ -1254,33 +1226,10 @@ export async function sendTrialEndedEmail({
                 Your 14-day free trial of <strong style="color: #9333ea;">OffboardPro Professional</strong> features has ended.
               </p>
               
-              <div class="info-card" style="background: #fef3c7; border-left-color: #f59e0b;">
-                <h3 style="color: #92400e;">What's Changed:</h3>
-                <div style="border-top: 1px solid #fde68a; margin: 12px 0;"></div>
-                
-                <div style="margin: 12px 0; padding: 12px; background: white; border-radius: 6px;">
-                  <p style="margin: 0; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                    <span>🔒</span> AI Exit Insights - Now Locked
-                  </p>
-                </div>
-                
-                <div style="margin: 12px 0; padding: 12px; background: white; border-radius: 6px;">
-                  <p style="margin: 0; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                    <span>🔒</span> Security Scanner - Now Locked
-                  </p>
-                </div>
-                
-                <div style="margin: 12px 0; padding: 12px; background: white; border-radius: 6px;">
-                  <p style="margin: 0; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                    <span>🔒</span> Exit Surveys - Now Locked
-                  </p>
-                </div>
-                
-                <div style="margin: 12px 0; padding: 12px; background: white; border-radius: 6px;">
-                  <p style="margin: 0; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                    <span>⬇️</span> Team Limit Reduced to 5 Members
-                  </p>
-                </div>
+              <div style="background: #fef3c7; padding: 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #f59e0b;">
+                <p style="margin: 0; color: #92400e; font-weight: 600;">
+                  ✨ Don't worry! You've been automatically moved to our Free plan, so you can continue using OffboardPro.
+                </p>
               </div>
               
               <div style="background: #dcfce7; padding: 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #16a34a;">
@@ -1291,91 +1240,7 @@ export async function sendTrialEndedEmail({
                   <li style="margin: 8px 0;">Basic Offboarding Workflows</li>
                   <li style="margin: 8px 0;">Task Management</li>
                   <li style="margin: 8px 0;">Up to 5 Team Members</li>
-                  <li style="margin: 8px 0;">Template System</li>
-                </ul>
-              </div>
-              
-              <div style="background: #faf5ff; padding: 24px; border-radius: 8px; margin: 32px 0; border-left: 4px solid #9333ea;">
-                <h3 style="color: #6b21a8; margin: 0 0 16px 0;">
-export async function sendTrialEndedEmail({
-  to,
-  userName,
-  upgradeLink = 'https://offboarding.vercel.app/pricing'
-}: TrialEndedEmailParams) {
-  try {
-    if (to.length === 0) {
-      console.warn('No recipients for trial ended email')
-      return { success: false, error: 'No recipients' }
-    }
-
-    const result = await sendBrevoEmail({
-      to,
-      subject: '⏰ Your OffboardPro Trial Has Ended',
-      htmlContent: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          ${EMAIL_STYLES}
-          <style>
-            .trial-ended-header { 
-              background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            }
-          </style>
-        </head>
-        <body>
-          <div class="email-container">
-            <div class="header trial-ended-header">
-              <div style="font-size: 56px; margin-bottom: 8px;">⏰</div>
-              <h1>Your Trial Has Ended</h1>
-            </div>
-            <div class="content">
-              <p style="font-size: 16px; margin-bottom: 24px;">
-                Hi <strong>${userName}</strong>,
-              </p>
-              
-              <p style="font-size: 16px; line-height: 1.7; color: #475569;">
-                Your 14-day free trial of <strong style="color: #9333ea;">OffboardPro Professional</strong> features has ended.
-              </p>
-              
-              <div class="info-card" style="background: #fef3c7; border-left-color: #f59e0b;">
-                <h3 style="color: #92400e;">What's Changed:</h3>
-                <div style="border-top: 1px solid #fde68a; margin: 12px 0;"></div>
-                
-                <div style="margin: 12px 0; padding: 12px; background: white; border-radius: 6px;">
-                  <p style="margin: 0; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                    <span>🔒</span> AI Exit Insights - Now Locked
-                  </p>
-                </div>
-                
-                <div style="margin: 12px 0; padding: 12px; background: white; border-radius: 6px;">
-                  <p style="margin: 0; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                    <span>🔒</span> Security Scanner - Now Locked
-                  </p>
-                </div>
-                
-                <div style="margin: 12px 0; padding: 12px; background: white; border-radius: 6px;">
-                  <p style="margin: 0; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                    <span>🔒</span> Exit Surveys - Now Locked
-                  </p>
-                </div>
-                
-                <div style="margin: 12px 0; padding: 12px; background: white; border-radius: 6px;">
-                  <p style="margin: 0; color: #dc2626; font-weight: 600; display: flex; align-items: center; gap: 8px;">
-                    <span>⬇️</span> Team Limit Reduced to 5 Members
-                  </p>
-                </div>
-              </div>
-              
-              <div style="background: #dcfce7; padding: 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #16a34a;">
-                <h4 style="margin: 0 0 12px 0; color: #166534; font-size: 16px;">
-                  ✅ You Still Have Access To:
-                </h4>
-                <ul style="margin: 0; padding-left: 20px; color: #15803d;">
-                  <li style="margin: 8px 0;">Basic Offboarding Workflows</li>
-                  <li style="margin: 8px 0;">Task Management</li>
-                  <li style="margin: 8px 0;">Up to 5 Team Members</li>
+                  <li style="margin: 8px 0;">3 Offboardings per Month</li>
                   <li style="margin: 8px 0;">Template System</li>
                 </ul>
               </div>
@@ -1385,61 +1250,28 @@ export async function sendTrialEndedEmail({
                   🚀 Want to Keep the Full Features?
                 </h3>
                 <p style="margin: 0 0 16px 0; color: #7c3aed; line-height: 1.6;">
-                  Upgrade now and get:
+                  Upgrade now and unlock:
                 </p>
                 <ul style="margin: 0; padding-left: 20px; color: #7c3aed; line-height: 1.8;">
                   <li>🤖 AI-powered exit analysis & insights</li>
                   <li>🔐 Security scanner for OAuth apps</li>
                   <li>📊 Exit surveys & churn detection</li>
                   <li>👥 Up to 100 team members (Professional)</li>
-                  <li>💰 <strong style="color: #9333ea;">25% off for life</strong> as a founding member!</li>
+                  <li>💰 <strong style="color: #9333ea;">20% OFF FOR LIFE</strong> as a founding member!</li>
                 </ul>
               </div>
               
               <div style="text-align: center; margin: 32px 0;">
                 <a href="${upgradeLink}" class="button" style="background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); font-size: 18px; padding: 18px 48px;">
-                  🎉 Upgrade Now & Save 25%
+                  🎉 Upgrade Now & Save 20%
                 </a>
               </div>
               
               <div style="background: #dbeafe; padding: 16px 20px; border-radius: 8px; margin: 32px 0; text-align: center;">
                 <p style="margin: 0; color: #1e40af; font-size: 14px;">
-                  <strong>⚡ Limited Time Offer:</strong> First 50 customers get founding member pricing<br>
-                  <span style="color: #1e3a8a;">Save $600/year • 14-day money-back guarantee</span>
+                  <strong>⚡ Founding Member Offer:</strong> First 50 customers get 20% off FOR LIFE<br>
+                  <span style="color: #1e3a8a;">Professional: $149/mo (was $199) • Enterprise: $399/mo (was $499)</span>
                 </p>
-              </div>
-              
-              <div style="margin: 32px 0; padding: 24px; background: #f8fafc; border-radius: 8px;">
-                <h4 style="margin: 0 0 16px 0; color: #1e293b; font-size: 16px;">
-                  Frequently Asked Questions:
-                </h4>
-                
-                <div style="margin: 12px 0;">
-                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #475569;">
-                    Q: Can I still use OffboardPro for free?
-                  </p>
-                  <p style="margin: 0; color: #64748b; font-size: 14px;">
-                    A: Yes! You have access to basic offboarding features forever on the Free plan.
-                  </p>
-                </div>
-                
-                <div style="margin: 12px 0;">
-                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #475569;">
-                    Q: What happens to my data?
-                  </p>
-                  <p style="margin: 0; color: #64748b; font-size: 14px;">
-                    A: All your data is safe and will remain accessible. Upgrade anytime to unlock premium features.
-                  </p>
-                </div>
-                
-                <div style="margin: 12px 0;">
-                  <p style="margin: 0 0 4px 0; font-weight: 600; color: #475569;">
-                    Q: Can I get another trial?
-                  </p>
-                  <p style="margin: 0; color: #64748b; font-size: 14px;">
-                    A: Each email gets one 14-day trial. However, we offer a 14-day money-back guarantee on all paid plans!
-                  </p>
-                </div>
               </div>
               
               <p style="margin-top: 32px; font-size: 14px; color: #64748b; text-align: center;">
