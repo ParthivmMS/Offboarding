@@ -37,6 +37,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
   const [error, setError] = useState('')
   const [memberCount, setMemberCount] = useState<number | null>(null)
   const [userPlan, setUserPlan] = useState<string>('starter')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
   const supabase = createClient()
 
   // Load member count and plan on mount
@@ -49,15 +50,20 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Get user's plan
+      // Get user's plan AND status
       const { data: userData } = await supabase
         .from('users')
-        .select('subscription_plan')
+        .select('subscription_plan, subscription_status')
         .eq('id', user.id)
         .single()
 
       if (userData?.subscription_plan) {
         setUserPlan(userData.subscription_plan)
+      }
+      
+      // Store status for limit checking
+      if (userData?.subscription_status) {
+        setSubscriptionStatus(userData.subscription_status)
       }
 
       // Get current organization
@@ -119,7 +125,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         return
       }
 
-      // 🆕 GET USER'S SUBSCRIPTION INFO
+      // GET USER'S SUBSCRIPTION INFO
       const { data: userData } = await supabase
         .from('users')
         .select('subscription_plan, subscription_status, name')
@@ -129,7 +135,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       const currentPlan = userData?.subscription_plan || 'starter'
       const subscriptionStatus = userData?.subscription_status
 
-      // 🆕 COUNT CURRENT TEAM MEMBERS
+      // COUNT CURRENT TEAM MEMBERS
       const { count: currentMemberCount, error: countError } = await supabase
         .from('organization_members')
         .select('*', { count: 'exact', head: true })
@@ -149,11 +155,11 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         subscriptionStatus
       })
 
-      // 🆕 CHECK SUBSCRIPTION LIMITS
-      const canInvite = canInviteMoreMembers(currentMemberCount || 0, currentPlan)
+      // CHECK SUBSCRIPTION LIMITS (now passing subscription status)
+      const canInvite = canInviteMoreMembers(currentMemberCount || 0, currentPlan, subscriptionStatus)
       
       if (!canInvite) {
-        const limits = getPlanLimits(currentPlan)
+        const limits = getPlanLimits(currentPlan, subscriptionStatus)
         
         setError(
           `Team member limit reached! Your ${limits.name} plan allows ${limits.maxTeamMembers} members. You currently have ${currentMemberCount}. Please upgrade to add more team members.`
@@ -163,8 +169,8 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         return
       }
 
-      // 🆕 SHOW WARNING IF APPROACHING LIMIT
-      const remaining = getRemainingMemberSlots(currentMemberCount || 0, currentPlan)
+      // SHOW WARNING IF APPROACHING LIMIT
+      const remaining = getRemainingMemberSlots(currentMemberCount || 0, currentPlan, subscriptionStatus)
       if (remaining !== Infinity && remaining <= 3) {
         console.log(`⚠️ Only ${remaining} member slots remaining on ${currentPlan} plan`)
       }
@@ -244,12 +250,12 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         console.log('✅ Email sent successfully!')
       }
 
-      // 🎉 TRACK INVITE EVENT
+      // TRACK INVITE EVENT
       trackInviteSent(role)
       console.log('📊 Tracked invite event:', role)
 
-      // 🆕 SUCCESS MESSAGE WITH REMAINING SLOTS INFO
-      const newRemaining = getRemainingMemberSlots((currentMemberCount || 0) + 1, currentPlan)
+      // SUCCESS MESSAGE WITH REMAINING SLOTS INFO
+      const newRemaining = getRemainingMemberSlots((currentMemberCount || 0) + 1, currentPlan, subscriptionStatus)
       let successMessage = `✅ Invitation sent to ${email}!`
       
       if (newRemaining !== Infinity && newRemaining <= 5) {
@@ -276,10 +282,10 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
     ).join(' ')
   }
 
-  // Calculate remaining slots for display
-  const limits = getPlanLimits(userPlan)
+  // Calculate remaining slots for display (now passing subscription status)
+  const limits = getPlanLimits(userPlan, subscriptionStatus)
   const remaining = memberCount !== null 
-    ? getRemainingMemberSlots(memberCount, userPlan)
+    ? getRemainingMemberSlots(memberCount, userPlan, subscriptionStatus)
     : null
   const isApproachingLimit = remaining !== null && remaining !== Infinity && remaining <= 5
 
@@ -294,7 +300,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {/* 🆕 SHOW LIMIT WARNING IF APPROACHING */}
+          {/* SHOW LIMIT WARNING IF APPROACHING */}
           {isApproachingLimit && remaining !== null && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -370,7 +376,7 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
             </p>
           </div>
 
-          {/* 🆕 PLAN INFO */}
+          {/* PLAN INFO */}
           {memberCount !== null && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
               <div className="flex items-center justify-between">
@@ -403,4 +409,4 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       </DialogContent>
     </Dialog>
   )
-                              }
+}
