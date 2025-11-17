@@ -44,6 +44,7 @@ export default function SecurityScannerPage() {
   })
   const [revokingAll, setRevokingAll] = useState(false)
   const [userPlan, setUserPlan] = useState<string>('starter')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null)
 
   useEffect(() => {
     loadSecurityData()
@@ -58,12 +59,16 @@ export default function SecurityScannerPage() {
 
       const { data: userData } = await supabase
         .from('users')
-        .select('subscription_plan')
+        .select('subscription_plan, subscription_status')
         .eq('id', user.id)
         .single()
 
       if (userData?.subscription_plan) {
         setUserPlan(userData.subscription_plan)
+      }
+
+      if (userData?.subscription_status) {
+        setSubscriptionStatus(userData.subscription_status)
       }
 
       // Track page view
@@ -194,7 +199,7 @@ export default function SecurityScannerPage() {
   }
 
   return (
-    <FeatureGate feature="security" userPlan={userPlan}>
+    <FeatureGate feature="security" userPlan={userPlan} subscriptionStatus={subscriptionStatus}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
