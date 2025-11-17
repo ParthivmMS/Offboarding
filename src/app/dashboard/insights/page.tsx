@@ -27,8 +27,8 @@ import {
 import Link from 'next/link'
 import FeatureGate from '@/components/FeatureGate'
 import { trackAIInsightsViewed } from '@/lib/analytics'
-const [userPlan, setUserPlan] = useState<string>('starter')
-const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null) // ← ADD
+
+// ❌ REMOVED WRONG HOOKS HERE
 
 interface Insight {
   id: string
