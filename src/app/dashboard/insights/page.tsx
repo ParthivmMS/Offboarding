@@ -27,6 +27,8 @@ import {
 import Link from 'next/link'
 import FeatureGate from '@/components/FeatureGate'
 import { trackAIInsightsViewed } from '@/lib/analytics'
+const [userPlan, setUserPlan] = useState<string>('starter')
+const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null) // ← ADD
 
 interface Insight {
   id: string
@@ -67,28 +69,30 @@ export default function InsightsPage() {
   }, [])
 
   async function loadUserPlan() {
-    try {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+  try {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
 
-      const { data: userData } = await supabase
-        .from('users')
-        .select('subscription_plan')
-        .eq('id', user.id)
-        .single()
+    const { data: userData } = await supabase
+      .from('users')
+      .select('subscription_plan, subscription_status') // ← Add status
+      .eq('id', user.id)
+      .single()
 
-      if (userData?.subscription_plan) {
-        setUserPlan(userData.subscription_plan)
-      }
-
-      // Track page view
-      trackAIInsightsViewed()
-    } catch (err) {
-      console.error('Error loading user plan:', err)
+    if (userData?.subscription_plan) {
+      setUserPlan(userData.subscription_plan)
     }
-  }
+    
+    if (userData?.subscription_status) {
+      setSubscriptionStatus(userData.subscription_status) // ← Add this
+    }
 
+    trackAIInsightsViewed()
+  } catch (err) {
+    console.error('Error loading user plan:', err)
+  }
+}
   async function loadInsights() {
     try {
       setLoading(true)
@@ -318,7 +322,7 @@ export default function InsightsPage() {
   const criticalInsights = activeInsights.filter(i => i.priority_level === 'critical' || i.priority_level === 'high')
 
   return (
-    <FeatureGate feature="ai" userPlan={userPlan}>
+  <FeatureGate feature="ai" userPlan={userPlan} subscriptionStatus={subscriptionStatus}>
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
