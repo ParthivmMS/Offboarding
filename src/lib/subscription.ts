@@ -1,5 +1,17 @@
 // Subscription limits and feature access control
 export const PLAN_LIMITS = {
+  free: {
+    name: 'Free',
+    maxTeamMembers: 5,
+    maxOffboardingsPerMonth: 3,
+    maxTemplates: 2,
+    hasAI: false,
+    hasSecurityScanner: false,
+    hasExitSurveys: false,
+    hasAPI: false,
+    hasPrioritySupport: false,
+    hasCustomBranding: false,
+  },
   starter: {
     name: 'Starter',
     maxTeamMembers: 25,
@@ -41,29 +53,37 @@ export const PLAN_LIMITS = {
 export type PlanName = keyof typeof PLAN_LIMITS
 
 // Get limits for a specific plan
-export function getPlanLimits(plan?: string | null) {
-  if (!plan) return PLAN_LIMITS.starter
+export function getPlanLimits(plan?: string | null, subscriptionStatus?: string | null) {
+  // 🆕 During trial, give Professional access
+  if (subscriptionStatus === 'trialing') {
+    return PLAN_LIMITS.professional
+  }
+  
+  // 🆕 After trial ends or no plan, use free
+  if (!plan || subscriptionStatus === 'trial_ended') {
+    return PLAN_LIMITS.free
+  }
   
   const normalizedPlan = plan.toLowerCase().trim() as PlanName
-  return PLAN_LIMITS[normalizedPlan] || PLAN_LIMITS.starter
+  return PLAN_LIMITS[normalizedPlan] || PLAN_LIMITS.free
 }
 
 // Check if user can invite more team members
-export function canInviteMoreMembers(currentCount: number, plan?: string | null): boolean {
-  const limits = getPlanLimits(plan)
+export function canInviteMoreMembers(currentCount: number, plan?: string | null, subscriptionStatus?: string | null): boolean {
+  const limits = getPlanLimits(plan, subscriptionStatus)
   return currentCount < limits.maxTeamMembers
 }
 
 // Get remaining team member slots
-export function getRemainingMemberSlots(currentCount: number, plan?: string | null): number {
-  const limits = getPlanLimits(plan)
+export function getRemainingMemberSlots(currentCount: number, plan?: string | null, subscriptionStatus?: string | null): number {
+  const limits = getPlanLimits(plan, subscriptionStatus)
   if (limits.maxTeamMembers === Infinity) return Infinity
   return Math.max(0, limits.maxTeamMembers - currentCount)
 }
 
 // Check if user has access to a specific feature
-export function hasFeatureAccess(feature: string, plan?: string | null): boolean {
-  const limits = getPlanLimits(plan)
+export function hasFeatureAccess(feature: string, plan?: string | null, subscriptionStatus?: string | null): boolean {
+  const limits = getPlanLimits(plan, subscriptionStatus)
   
   switch (feature.toLowerCase()) {
     case 'ai':
@@ -150,10 +170,17 @@ export function hasActiveSubscription(user: any): boolean {
 }
 
 // Get plan badge color
-export function getPlanBadgeColor(plan?: string | null): string {
+export function getPlanBadgeColor(plan?: string | null, subscriptionStatus?: string | null): string {
+  // Special color for trial
+  if (subscriptionStatus === 'trialing') {
+    return 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 border-purple-200'
+  }
+  
   const normalizedPlan = plan?.toLowerCase().trim()
   
   switch (normalizedPlan) {
+    case 'free':
+      return 'bg-gray-100 text-gray-700 border-gray-200'
     case 'starter':
       return 'bg-blue-100 text-blue-700 border-blue-200'
     case 'professional':
