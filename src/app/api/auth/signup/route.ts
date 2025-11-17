@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkTrialEligibility, startTrial } from '@/lib/trial'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -29,7 +30,17 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // Step 1: Check if user already exists
+    // 🆕 STEP 1: Check trial eligibility FIRST
+    const eligibility = await checkTrialEligibility(email)
+    
+    if (!eligibility.eligible) {
+      return NextResponse.json(
+        { error: eligibility.reason || 'Not eligible for trial' },
+        { status: 400 }
+      )
+    }
+
+    // Step 2: Check if user already exists
     const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id, email')
@@ -43,7 +54,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 2: Create Supabase Auth user
+    // Step 3: Create Supabase Auth user
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -71,7 +82,14 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id
 
-    // Step 3: Create user record in public.users
+    // 🆕 Step 4: Start trial immediately (will be activated after email verification)
+    const trialStarted = await startTrial(userId, email)
+    
+    if (!trialStarted) {
+      console.warn('⚠️ Trial start failed, but continuing with signup')
+    }
+
+    // Step 5: Create user record in public.users (trial info already set by startTrial)
     const { error: userInsertError } = await supabaseAdmin
       .from('users')
       .upsert({
@@ -95,11 +113,11 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 4: Generate verification link
+    // Step 6: Generate verification link
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'signup',
       email: email,
-      password: password, // ✅ ADD THIS LINE
+      password: password,
       options: {
         redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?orgName=${encodeURIComponent(organizationName)}`
       }
@@ -119,7 +137,7 @@ export async function POST(request: Request) {
     const verificationLink = linkData.properties.action_link
     console.log('🔗 Verification link generated:', verificationLink)
 
-    // Step 5: Send verification email via Brevo
+    // Step 7: Send verification email via Brevo
     try {
       const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
         method: 'POST',
@@ -152,9 +170,15 @@ export async function POST(request: Request) {
       )
     }
 
+    console.log('✅ Signup complete with trial:', {
+      email,
+      userId,
+      trialStarted
+    })
+
     return NextResponse.json({
       success: true,
-      message: 'Account created! Please check your email to verify.',
+      message: 'Account created! Please check your email to verify and start your 14-day free trial.',
       requiresVerification: true,
     })
   } catch (error) {
