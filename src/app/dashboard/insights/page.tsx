@@ -28,8 +28,7 @@ import Link from 'next/link'
 import FeatureGate from '@/components/FeatureGate'
 import { trackAIInsightsViewed } from '@/lib/analytics'
 
-// ❌ REMOVED WRONG HOOKS HERE
-
+// Interfaces
 interface Insight {
   id: string
   analysis_type: string
@@ -55,44 +54,50 @@ interface ExitMetrics {
 
 export default function InsightsPage() {
   const router = useRouter()
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
   const [insights, setInsights] = useState<Insight[]>([])
   const [metrics, setMetrics] = useState<ExitMetrics | null>(null)
   const [organizationId, setOrganizationId] = useState<string>('')
+
   const [userPlan, setUserPlan] = useState<string>('starter')
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null) // ✅ FIXED
 
   useEffect(() => {
     loadInsights()
     loadUserPlan()
   }, [])
 
+  // Load user plan + subscription status
   async function loadUserPlan() {
-  try {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-    const { data: userData } = await supabase
-      .from('users')
-      .select('subscription_plan, subscription_status') // ← Add status
-      .eq('id', user.id)
-      .single()
+      const { data: userData } = await supabase
+        .from('users')
+        .select('subscription_plan, subscription_status')
+        .eq('id', user.id)
+        .single()
 
-    if (userData?.subscription_plan) {
-      setUserPlan(userData.subscription_plan)
+      if (userData?.subscription_plan) {
+        setUserPlan(userData.subscription_plan)
+      }
+
+      if (userData?.subscription_status) {
+        setSubscriptionStatus(userData.subscription_status) // ← REQUIRED
+      }
+
+      trackAIInsightsViewed()
+    } catch (err) {
+      console.error('Error loading user plan:', err)
     }
-    
-    if (userData?.subscription_status) {
-      setSubscriptionStatus(userData.subscription_status) // ← Add this
-    }
-
-    trackAIInsightsViewed()
-  } catch (err) {
-    console.error('Error loading user plan:', err)
   }
-}
+
+  // Load insights + metrics
   async function loadInsights() {
     try {
       setLoading(true)
@@ -115,7 +120,7 @@ export default function InsightsPage() {
 
       setOrganizationId(organization.id)
 
-      // Get AI insights
+      // Load insights
       const { data: insightsData, error: insightsError } = await supabase
         .from('ai_insights')
         .select('*')
@@ -123,13 +128,11 @@ export default function InsightsPage() {
         .order('generated_at', { ascending: false })
         .limit(10)
 
-      if (insightsError) {
-        throw insightsError
-      }
+      if (insightsError) throw insightsError
 
       setInsights(insightsData || [])
 
-      // Get exit survey metrics
+      // Load exit surveys (90 days)
       const ninetyDaysAgo = new Date()
       ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
 
@@ -139,8 +142,11 @@ export default function InsightsPage() {
         .eq('organization_id', organization.id)
         .gte('submitted_at', ninetyDaysAgo.toISOString())
 
-      if (!surveysError && surveys && surveys.length > 0) {
-        const avgNps = surveys.reduce((sum, s) => sum + (s.likelihood_to_recommend || 0), 0) / surveys.length
+      if (!surveysError && surveys?.length > 0) {
+        const avgNps =
+          surveys.reduce((sum, s) => sum + (s.likelihood_to_recommend || 0), 0) /
+          surveys.length
+
         const boomerangCount = surveys.filter(s => s.would_return).length
         const boomerangPotential = (boomerangCount / surveys.length) * 100
 
@@ -150,8 +156,11 @@ export default function InsightsPage() {
           reasonCounts[reason] = (reasonCounts[reason] || 0) + 1
         })
 
-        const topReason = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown'
-        const sentiment = avgNps >= 7 ? 'positive' : avgNps >= 5 ? 'neutral' : 'negative'
+        const topReason =
+          Object.entries(reasonCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown'
+
+        const sentiment =
+          avgNps >= 7 ? 'positive' : avgNps >= 5 ? 'neutral' : 'negative'
 
         setMetrics({
           total_exits: surveys.length,
@@ -162,7 +171,6 @@ export default function InsightsPage() {
           departure_reasons: reasonCounts,
         })
       }
-
     } catch (error: any) {
       console.error('Failed to load insights:', error)
       setError(error.message || 'Failed to load AI insights. Please try again.')
@@ -170,7 +178,6 @@ export default function InsightsPage() {
       setLoading(false)
     }
   }
-
   async function triggerAnalysis() {
     setAnalyzing(true)
     try {
