@@ -9,6 +9,7 @@ import { hasFeatureAccess, getFeatureDisplayName, getPlanLimits, PLAN_LIMITS } f
 interface FeatureGateProps {
   feature: string
   userPlan?: string | null
+  subscriptionStatus?: string | null
   children: ReactNode
   fallback?: ReactNode
   showUpgradePrompt?: boolean
@@ -17,12 +18,13 @@ interface FeatureGateProps {
 export default function FeatureGate({ 
   feature, 
   userPlan,
+  subscriptionStatus,
   children,
   fallback,
   showUpgradePrompt = true
 }: FeatureGateProps) {
   const router = useRouter()
-  const hasAccess = hasFeatureAccess(feature, userPlan)
+  const hasAccess = hasFeatureAccess(feature, userPlan, subscriptionStatus)
   
   if (hasAccess) {
     return <>{children}</>
@@ -180,13 +182,15 @@ unlockPlan = featureUnlockPlan[feature.toLowerCase()] || 'Professional'
 export function FeatureGateInline({ 
   feature, 
   userPlan,
+  subscriptionStatus,
   children 
 }: {
   feature: string
   userPlan?: string | null
+  subscriptionStatus?: string | null
   children: ReactNode
 }) {
-  const hasAccess = hasFeatureAccess(feature, userPlan)
+  const hasAccess = hasFeatureAccess(feature, userPlan, subscriptionStatus)
   
   if (!hasAccess) {
     return (
