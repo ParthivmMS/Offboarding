@@ -20,6 +20,25 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'yopmail.com',
   'getnada.com',
   'emailondeck.com',
+  'chaineor.com',
+  'sharklasers.com',
+  'grr.la',
+  'guerrillamailblock.com',
+  'pokemail.net',
+  'spam4.me',
+  'tmails.net',
+  'rootfest.net',
+  'clrmail.com',
+  'getairmail.com',
+  'mohmal.com',
+  'mintemail.com',
+  'throwam.com',
+  'mytrashmail.com',
+  '33mail.com',
+  'dispostable.com',
+  'mailnesia.com',
+  'emailsensei.com',
+  'tmail.ws',
 ]
 
 export interface TrialEligibility {
@@ -351,4 +370,4 @@ export async function markTrialConverted(userId: string): Promise<boolean> {
     console.error('Error marking trial as converted:', error)
     return false
   }
-        }
+}
