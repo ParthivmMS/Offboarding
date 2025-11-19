@@ -772,16 +772,23 @@ export async function sendTaskDueReminderEmail({
 }
 
 export async function sendTeamInvitationEmail({
-  to,
+  to = [],  // ✅ Default empty array
   inviterName,
   organizationName,
   role,
   inviteLink,
 }: TeamInvitationEmailParams) {
   try {
-    if (to.length === 0) {
+    // ✅ Better validation
+    if (!to || to.length === 0) {
       console.warn('No recipients for team invitation email')
       return { success: false, error: 'No recipients' }
+    }
+
+    // ✅ Better validation for inviteLink
+    if (!inviteLink) {
+      console.error('No invite link provided')
+      return { success: false, error: 'No invite link' }
     }
 
     const roleColors: Record<string, string> = {
@@ -792,6 +799,9 @@ export async function sendTeamInvitationEmail({
       'user': '#64748b',
     }
     const roleColor = roleColors[role] || '#2563eb'
+
+    console.log('📧 Sending team invitation email to:', to)
+    console.log('📧 Invite link:', inviteLink)
 
     const result = await sendBrevoEmail({
       to,
@@ -872,15 +882,15 @@ export async function sendTeamInvitationEmail({
     })
 
     if (!result.success) {
-      console.error('Error sending team invitation email:', result.error)
+      console.error('❌ Error sending team invitation email:', result.error)
       return result
     }
 
     console.log('✅ Team invitation email sent successfully to:', to)
     return result
-  } catch (error) {
-    console.error('Error sending team invitation email:', error)
-    return { success: false, error }
+  } catch (error: any) {
+    console.error('❌ Error sending team invitation email:', error)
+    return { success: false, error: error.message || 'Unknown error' }
   }
 }
 
