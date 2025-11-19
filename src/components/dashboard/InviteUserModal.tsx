@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,9 +41,9 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
   const supabase = createClient()
 
   // Load member count and plan on mount
-  useState(() => {
+  useEffect(() => {
     loadTeamInfo()
-  })
+  }, [])
 
   async function loadTeamInfo() {
     try {
@@ -227,26 +227,31 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       // Send invitation email
       console.log('📧 Sending invitation email to:', email)
       
+      // ✅ FIX: Ensure all parameters are correctly formatted
       const emailResponse = await fetch('/api/send-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'team_invitation',
-          to: [email],
+          to: [email], // ✅ MUST be array
           inviterName: userData?.name || 'A team member',
           organizationName: organization.name,
           role: formatRole(role),
-          inviteLink,
+          inviteLink: inviteLink,
         }),
       })
 
-      const emailResult = await emailResponse.json()
-      console.log('📬 Email result:', emailResult)
-
+      // Check if response is ok before parsing
       if (!emailResponse.ok) {
-        console.error('❌ Email sending failed:', emailResult)
-        // Don't fail - invitation is still created
+        const errorText = await emailResponse.text()
+        console.error('❌ Email API error:', errorText)
+        
+        // Don't fail the invitation - just warn
+        console.warn('⚠️ Email sending failed, but invitation was created')
+        alert(`✅ Invitation created! However, the email could not be sent. Please share this link manually:\n\n${inviteLink}`)
       } else {
+        const emailResult = await emailResponse.json()
+        console.log('📬 Email result:', emailResult)
         console.log('✅ Email sent successfully!')
       }
 
@@ -409,4 +414,4 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       </DialogContent>
     </Dialog>
   )
-}
+  }
