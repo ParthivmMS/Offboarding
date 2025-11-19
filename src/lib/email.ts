@@ -1,6 +1,6 @@
 // /src/lib/email.ts
 import { createClient } from '@/lib/supabase/client'
-import { sendSMTPEmail } from './email-smtp'
+import { sendBrevoEmail } from './email-brevo'
 
 // Fallback department emails (used if database lookup fails)
 const FALLBACK_DEPARTMENT_EMAILS: Record<string, string> = {
@@ -279,7 +279,7 @@ export async function sendOffboardingCreatedEmail({
       day: 'numeric' 
     })
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to: recipients,
       subject: `🚀 New Offboarding Started: ${employeeName}`,
       htmlContent: `
@@ -347,6 +347,8 @@ export async function sendOffboardingCreatedEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
     
     console.log('✅ Offboarding created email sent to:', recipients)
@@ -387,7 +389,7 @@ export async function sendTaskAssignedEmail({
       ? `<span class="badge badge-danger">Due in ${daysUntilDue} days</span>`
       : `<span class="badge badge-warning">Due in ${daysUntilDue} days</span>`
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to,
       subject: `📋 New Task Assigned: ${taskName}`,
       htmlContent: `
@@ -455,6 +457,8 @@ export async function sendTaskAssignedEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
     
     console.log('✅ Task assigned email sent to:', to)
@@ -482,7 +486,7 @@ export async function sendTaskCompletedEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to,
       subject: `✅ Task Completed: ${taskName}`,
       htmlContent: `
@@ -556,6 +560,8 @@ export async function sendTaskCompletedEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
     
     console.log('✅ Task completed email sent to:', to)
@@ -582,7 +588,7 @@ export async function sendOffboardingCompletedEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to,
       subject: `🎉 Offboarding Completed: ${employeeName}`,
       htmlContent: `
@@ -660,6 +666,8 @@ export async function sendOffboardingCompletedEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
     
     console.log('✅ Offboarding completed email sent to:', to)
@@ -696,7 +704,7 @@ export async function sendTaskDueReminderEmail({
       day: 'numeric' 
     })
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to,
       subject: `⚠️ ${urgencyLevel}: ${taskName}`,
       htmlContent: `
@@ -761,6 +769,8 @@ export async function sendTaskDueReminderEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
     
     console.log('✅ Task due reminder email sent to:', to)
@@ -803,7 +813,7 @@ export async function sendTeamInvitationEmail({
     console.log('📧 Sending team invitation email to:', to)
     console.log('📧 Invite link:', inviteLink)
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to,
       subject: `🎉 You're invited to join ${organizationName} on OffboardPro`,
       htmlContent: `
@@ -879,6 +889,8 @@ export async function sendTeamInvitationEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
 
     if (!result.success) {
@@ -918,7 +930,7 @@ export async function sendChurnAlertEmail({
 
     const config = priorityConfig[priority as keyof typeof priorityConfig] || priorityConfig.medium
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to,
       subject: `${config.icon} ${priority.toUpperCase()} Churn Risk Alert - Immediate Action Required`,
       htmlContent: `
@@ -1033,6 +1045,8 @@ export async function sendChurnAlertEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
     
     console.log('✅ Churn alert email sent to:', to)
@@ -1056,7 +1070,7 @@ export async function sendExitSurveyInvitationEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to,
       subject: `✨ We'd Love Your Feedback - Exit Survey`,
       htmlContent: `
@@ -1179,6 +1193,8 @@ export async function sendExitSurveyInvitationEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
 
     if (!result.success) {
@@ -1205,7 +1221,7 @@ export async function sendTrialEndedEmail({
       return { success: false, error: 'No recipients' }
     }
 
-    const result = await sendSMTPEmail({
+    const result = await sendBrevoEmail({
       to,
       subject: '⏰ Your OffboardPro Trial Has Ended - Save 20%!',
       htmlContent: `
@@ -1304,6 +1320,8 @@ export async function sendTrialEndedEmail({
         </body>
         </html>
       `,
+      senderName: 'OffboardPro',
+  senderEmail: 'parthivmssince2005@gmail.com',
     })
 
     if (!result.success) {
