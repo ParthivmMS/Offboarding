@@ -6,6 +6,7 @@ interface SendEmailParams {
   htmlContent: string
   senderName?: string
   senderEmail?: string
+  replyToEmail?: string // ✅ NEW: Allow custom reply-to
   textContent?: string
 }
 
@@ -15,12 +16,14 @@ export async function sendBrevoEmail({
   htmlContent,
   textContent,
   senderName = 'OffboardPro',
-  senderEmail = 'parthivmssince2005@gmail.com', // ✅ FIX: Use verified Gmail address
+  senderEmail = 'parthivmssince2005@10105014.brevosend.com', // ✅ FIX: Authenticated Brevo domain
+  replyToEmail = 'parthivmssince2005@gmail.com', // ✅ NEW: Replies go to your Gmail
 }: SendEmailParams) {
   try {
     console.log('📧 Starting Brevo email send to:', to)
     console.log('📧 Subject:', subject)
-    console.log('📧 Sender:', senderEmail) // ✅ Added logging
+    console.log('📧 Sender:', senderEmail)
+    console.log('📧 Reply-To:', replyToEmail)
     
     if (!process.env.BREVO_API_KEY) {
       console.error('❌ BREVO_API_KEY is not configured')
@@ -35,13 +38,16 @@ export async function sendBrevoEmail({
         name: senderName,
         email: senderEmail,
       },
+      replyTo: {
+        email: replyToEmail, // ✅ NEW: User replies go to your Gmail
+      },
       to: to.map(email => ({ email })),
       subject: subject,
       htmlContent: htmlContent,
       ...(textContent && { textContent })
     }
 
-    console.log('📤 Sending to Brevo API with sender:', emailData.sender)
+    console.log('📤 Sending to Brevo API with authenticated sender:', emailData.sender)
 
     // Send via Brevo REST API
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -66,7 +72,6 @@ export async function sendBrevoEmail({
         errorData = { message: responseText }
       }
       
-      // ✅ Better error logging
       console.error('❌ Brevo API Error Details:', {
         status: response.status,
         error: errorData,
