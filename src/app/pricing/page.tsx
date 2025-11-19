@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { initializePaddle, Paddle } from '@paddle/paddle-js'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Check, Loader2, Sparkles, Shield, Users as UsersIcon } from 'lucide-react'
+import { Check, Loader2, Sparkles, Users as UsersIcon } from 'lucide-react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -34,7 +34,6 @@ function PricingContent() {
     // Check for subscription success/cancel
     const status = searchParams?.get('subscription')
     if (status === 'success') {
-      // Show success message
       alert('🎉 Subscription activated! Redirecting to dashboard...')
       setTimeout(() => router.push('/dashboard'), 2000)
     }
@@ -51,9 +50,7 @@ function PricingContent() {
       return
     }
 
-    // Check if user is logged in
     if (!currentUser) {
-      // Redirect to signup with return URL
       router.push(`/signup?redirect=/pricing&plan=${planName}`)
       return
     }
@@ -61,7 +58,6 @@ function PricingContent() {
     setLoading(priceId)
 
     try {
-      // Open Paddle checkout
       paddle.Checkout.open({
         items: [{ priceId, quantity: 1 }],
         customer: {
@@ -86,6 +82,7 @@ function PricingContent() {
     }
   }
 
+  // ✅ REMOVED ENTERPRISE PLAN
   const plans = [
     {
       name: 'Starter',
@@ -96,13 +93,14 @@ function PricingContent() {
       badge: '20% OFF - Founding Member',
       badgeColor: 'bg-blue-100 text-blue-700',
       features: [
+        'Up to 25 team members',
         'Unlimited offboardings',
-        'Up to 25 employees',
-        'Basic templates',
+        'Basic workflow templates',
         'Email notifications',
         'Team collaboration',
         'Security scanner',
         'Task management',
+        'Priority email support',
         '14-day free trial',
       ],
       cta: 'Start Free Trial',
@@ -118,39 +116,18 @@ function PricingContent() {
       badgeColor: 'bg-purple-100 text-purple-700',
       features: [
         'Everything in Starter',
-        'Up to 100 employees',
-        'AI-powered exit surveys',
-        'Churn pattern detection',
-        'Custom templates',
-        'Exit interviews',
-        'Priority support',
-        'Analytics dashboard',
+        'Up to 100 team members',
+        '🤖 AI-powered exit surveys',
+        '📊 Churn pattern detection',
+        '🔐 Advanced security scanner',
+        '20 custom workflow templates',
+        'Exit interviews & insights',
+        'Advanced analytics dashboard',
+        'Priority support (email & chat)',
         '14-day free trial',
       ],
       cta: 'Start Free Trial',
       popular: true,
-    },
-    {
-      name: 'Enterprise',
-      price: '$399',
-      originalPrice: '$499',
-      priceId: process.env.NEXT_PUBLIC_PADDLE_ENTERPRISE_PRICE_ID!,
-      description: 'For large organizations',
-      badge: '20% OFF - Founding Member',
-      badgeColor: 'bg-green-100 text-green-700',
-      features: [
-        'Everything in Professional',
-        'Unlimited employees',
-        'White-label branding',
-        'Dedicated account manager',
-        'Custom integrations',
-        'SSO/SAML',
-        'SLA guarantee',
-        'Advanced security',
-        '14-day free trial',
-      ],
-      cta: 'Start Free Trial',
-      popular: false,
     },
   ]
 
@@ -214,9 +191,9 @@ function PricingContent() {
         </div>
       </div>
 
-      {/* Pricing Cards */}
+      {/* Pricing Cards - NOW ONLY 2 PLANS */}
       <div className="container mx-auto px-4 pb-20">
-        <div className="grid md:grid-cols-3 gap-8 max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {plans.map((plan) => (
             <Card
               key={plan.name}
@@ -284,6 +261,30 @@ function PricingContent() {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* ✅ NEW: Enterprise Contact Section */}
+        <div className="mt-12 text-center">
+          <Card className="max-w-2xl mx-auto border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-purple-50">
+            <CardHeader>
+              <CardTitle className="text-2xl">Need More Than 100 Team Members?</CardTitle>
+              <CardDescription className="text-base">
+                Contact us for custom Enterprise pricing tailored to your organization's needs.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <p className="text-sm text-gray-600">
+                  Enterprise features include unlimited team members, API access, custom integrations, SSO/SAML, and dedicated support.
+                </p>
+                <Link href="mailto:parthivmssince2005@gmail.com?subject=Enterprise Plan Inquiry">
+                  <Button size="lg" variant="outline" className="w-full md:w-auto">
+                    📧 Contact Sales
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
@@ -374,7 +375,6 @@ function PricingContent() {
   )
 }
 
-// Wrap in Suspense for useSearchParams
 export default function PricingPage() {
   return (
     <Suspense fallback={
@@ -385,4 +385,4 @@ export default function PricingPage() {
       <PricingContent />
     </Suspense>
   )
-}
+              }
