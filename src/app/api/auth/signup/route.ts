@@ -1,3 +1,4 @@
+// src/app/api/auth/signup/route.ts
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkTrialEligibility, startTrial } from '@/lib/trial'
@@ -9,7 +10,6 @@ export async function POST(request: Request) {
   try {
     const { organizationName, name, email, password } = await request.json()
 
-    // Validate input
     if (!organizationName || !name || !email || !password) {
       return NextResponse.json(
         { error: 'All fields are required' },
@@ -24,13 +24,12 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create admin client for privileged operations
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // 🆕 STEP 1: Check trial eligibility FIRST
+    // Check trial eligibility
     const eligibility = await checkTrialEligibility(email)
     
     if (!eligibility.eligible) {
@@ -40,7 +39,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 2: Check if user already exists
+    // Check if user exists
     const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id, email')
@@ -54,15 +53,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 3: Create Supabase Auth user
+    // ✅ FIX: Let Supabase send verification email automatically!
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // 🔒 Requires email verification
+      email_confirm: false, // ✅ Supabase will send verification email
       user_metadata: {
         name,
         organization_name: organizationName,
       },
+      // ✅ Custom redirect after email verification
+      options: {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?orgName=${encodeURIComponent(organizationName)}`
+      }
     })
 
     if (authError) {
@@ -82,14 +85,14 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id
 
-    // 🆕 Step 4: Start trial immediately (will be activated after email verification)
+    // Start trial
     const trialStarted = await startTrial(userId, email)
     
     if (!trialStarted) {
       console.warn('⚠️ Trial start failed, but continuing with signup')
     }
 
-    // Step 5: Create user record in public.users (trial info already set by startTrial)
+    // Create user record
     const { error: userInsertError } = await supabaseAdmin
       .from('users')
       .upsert({
@@ -97,7 +100,7 @@ export async function POST(request: Request) {
         email: email,
         name: name,
         password_hash: 'supabase_auth',
-        is_active: false, // 🔒 Will be activated after email verification
+        is_active: false, // Will be activated after verification
         role: 'user',
       }, {
         onConflict: 'id',
@@ -113,68 +116,8 @@ export async function POST(request: Request) {
       )
     }
 
-    // Step 6: Generate verification link
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email: email,
-      password: password,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?orgName=${encodeURIComponent(organizationName)}`
-      }
-    })
-
-    if (linkError || !linkData?.properties?.action_link) {
-      console.error('Link generation error:', linkError)
-      // Cleanup
-      await supabaseAdmin.auth.admin.deleteUser(userId)
-      await supabaseAdmin.from('users').delete().eq('id', userId)
-      return NextResponse.json(
-        { error: 'Failed to generate verification link' },
-        { status: 500 }
-      )
-    }
-
-    const verificationLink = linkData.properties.action_link
-    console.log('🔗 Verification link generated:', verificationLink)
-
-    // Step 7: Send verification email via Brevo
-    try {
-      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'email_verification',
-          to: email,
-          data: {
-            name: name,
-            verificationLink: verificationLink,
-            organizationName: organizationName,
-          }
-        })
-      })
-
-      if (!emailResponse.ok) {
-        console.error('Email send failed:', await emailResponse.text())
-        throw new Error('Failed to send verification email')
-      }
-
-      console.log('✅ Verification email sent to:', email)
-    } catch (emailError) {
-      console.error('Email send error:', emailError)
-      // Cleanup
-      await supabaseAdmin.auth.admin.deleteUser(userId)
-      await supabaseAdmin.from('users').delete().eq('id', userId)
-      return NextResponse.json(
-        { error: 'Failed to send verification email. Please try again.' },
-        { status: 500 }
-      )
-    }
-
-    console.log('✅ Signup complete with trial:', {
-      email,
-      userId,
-      trialStarted
-    })
+    // ✅ NO MANUAL EMAIL SENDING - Supabase handles it!
+    console.log('✅ Signup complete! Supabase will send verification email to:', email)
 
     return NextResponse.json({
       success: true,
