@@ -1,3 +1,5 @@
+// src/lib/email-brevo.ts
+
 interface SendEmailParams {
   to: string[]
   subject: string
@@ -13,11 +15,12 @@ export async function sendBrevoEmail({
   htmlContent,
   textContent,
   senderName = 'OffboardPro',
-  senderEmail = 'noreply@offboarding.vercel.app',
+  senderEmail = 'parthivmssince2005@gmail.com', // ✅ FIX: Use verified Gmail address
 }: SendEmailParams) {
   try {
     console.log('📧 Starting Brevo email send to:', to)
     console.log('📧 Subject:', subject)
+    console.log('📧 Sender:', senderEmail) // ✅ Added logging
     
     if (!process.env.BREVO_API_KEY) {
       console.error('❌ BREVO_API_KEY is not configured')
@@ -38,7 +41,7 @@ export async function sendBrevoEmail({
       ...(textContent && { textContent })
     }
 
-    console.log('📤 Sending to Brevo API...')
+    console.log('📤 Sending to Brevo API with sender:', emailData.sender)
 
     // Send via Brevo REST API
     const response = await fetch('https://api.brevo.com/v3/smtp/email', {
@@ -62,6 +65,15 @@ export async function sendBrevoEmail({
       } catch {
         errorData = { message: responseText }
       }
+      
+      // ✅ Better error logging
+      console.error('❌ Brevo API Error Details:', {
+        status: response.status,
+        error: errorData,
+        sender: emailData.sender,
+        recipients: to
+      })
+      
       throw new Error(`Brevo API error (${response.status}): ${JSON.stringify(errorData)}`)
     }
 
