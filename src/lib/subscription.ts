@@ -36,30 +36,31 @@ export const PLAN_LIMITS = {
     hasPrioritySupport: false,
     hasCustomBranding: false,
   },
-  enterprise: {
-    name: 'Enterprise',
-    maxTeamMembers: Infinity,
-    maxOffboardingsPerMonth: Infinity,
-    maxTemplates: Infinity,
-    hasAI: true,
-    hasSecurityScanner: true,
-    hasExitSurveys: true,
-    hasAPI: true,
-    hasPrioritySupport: true,
-    hasCustomBranding: true,
-  },
+  // ✅ TEMPORARILY COMMENTED OUT FOR PADDLE APPROVAL
+  // enterprise: {
+  //   name: 'Enterprise',
+  //   maxTeamMembers: Infinity,
+  //   maxOffboardingsPerMonth: Infinity,
+  //   maxTemplates: Infinity,
+  //   hasAI: true,
+  //   hasSecurityScanner: true,
+  //   hasExitSurveys: true,
+  //   hasAPI: true,
+  //   hasPrioritySupport: true,
+  //   hasCustomBranding: true,
+  // },
 }
 
 export type PlanName = keyof typeof PLAN_LIMITS
 
 // Get limits for a specific plan
 export function getPlanLimits(plan?: string | null, subscriptionStatus?: string | null) {
-  // 🆕 During trial, give Professional access
+  // During trial, give Professional access
   if (subscriptionStatus === 'trialing') {
     return PLAN_LIMITS.professional
   }
   
-  // 🆕 After trial ends or no plan, use free
+  // After trial ends or no plan, use free
   if (!plan || subscriptionStatus === 'trial_ended') {
     return PLAN_LIMITS.free
   }
@@ -108,7 +109,7 @@ export function hasFeatureAccess(feature: string, plan?: string | null, subscrip
       return limits.hasCustomBranding
       
     default:
-      return true // Unknown features are accessible by default
+      return true
   }
 }
 
@@ -132,7 +133,7 @@ export function getFeatureDisplayName(feature: string): string {
 // Get upgrade message for a feature
 export function getUpgradeMessage(feature: string): string {
   const featureName = getFeatureDisplayName(feature)
-  return `${featureName} is available on Professional and Enterprise plans`
+  return `${featureName} is available on Professional plan`
 }
 
 // Check if user is on trial
@@ -185,8 +186,8 @@ export function getPlanBadgeColor(plan?: string | null, subscriptionStatus?: str
       return 'bg-blue-100 text-blue-700 border-blue-200'
     case 'professional':
       return 'bg-purple-100 text-purple-700 border-purple-200'
-    case 'enterprise':
-      return 'bg-amber-100 text-amber-700 border-amber-200'
+    // case 'enterprise':
+    //   return 'bg-amber-100 text-amber-700 border-amber-200'
     default:
       return 'bg-gray-100 text-gray-700 border-gray-200'
   }
