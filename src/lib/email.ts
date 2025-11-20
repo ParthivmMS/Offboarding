@@ -782,115 +782,70 @@ export async function sendTaskDueReminderEmail({
 }
 
 export async function sendTeamInvitationEmail({
-  to = [],  // ✅ Default empty array
+  to = [],
   inviterName,
   organizationName,
   role,
   inviteLink,
 }: TeamInvitationEmailParams) {
   try {
-    // ✅ Better validation
     if (!to || to.length === 0) {
       console.warn('No recipients for team invitation email')
       return { success: false, error: 'No recipients' }
     }
 
-    // ✅ Better validation for inviteLink
     if (!inviteLink) {
       console.error('No invite link provided')
       return { success: false, error: 'No invite link' }
     }
 
-    const roleColors: Record<string, string> = {
-      'admin': '#dc2626',
-      'hr_manager': '#9333ea',
-      'it_manager': '#2563eb',
-      'manager': '#059669',
-      'user': '#64748b',
-    }
-    const roleColor = roleColors[role] || '#2563eb'
-
     console.log('📧 Sending team invitation email to:', to)
     console.log('📧 Invite link:', inviteLink)
 
+    // ✅ SIMPLE VERSION - Clean and deliverable
     const result = await sendBrevoEmail({
       to,
-      subject: `🎉 You're invited to join ${organizationName} on OffboardPro`,
+      subject: `You're invited to join ${organizationName} on OffboardPro`,
       htmlContent: `
-        <!DOCTYPE html>
         <html>
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          ${EMAIL_STYLES}
-          <style>
-            .invite-header { 
-              background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%);
-            }
-          </style>
-        </head>
-        <body>
-          <div class="email-container">
-            <div class="header invite-header">
-              <div style="font-size: 56px; margin-bottom: 8px;">🎉</div>
-              <h1>You're Invited!</h1>
-            </div>
-            <div class="content">
-              <p style="font-size: 18px; margin-bottom: 24px; text-align: center;">
-                <strong>${inviterName}</strong> has invited you to join<br>
-                <strong style="color: #9333ea; font-size: 20px;">${organizationName}</strong>
-              </p>
-              
-              <div style="background: #faf5ff; padding: 24px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #9333ea; text-align: center;">
-                <p style="margin: 0 0 12px 0; color: #6b21a8; font-weight: 600;">Your Role:</p>
-                <span class="badge" style="background: ${roleColor}; color: white; font-size: 16px; padding: 8px 20px;">
-                  ${role.replace('_', ' ').toUpperCase()}
-                </span>
-              </div>
-              
-              <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 24px 0; border-left: 4px solid #2563eb;">
-                <p style="margin: 0 0 12px 0; color: #1e40af; font-weight: 600;">
-                  📋 What is OffboardPro?
-                </p>
-                <p style="margin: 0; color: #1e3a8a; line-height: 1.6;">
-                  OffboardPro helps teams manage employee offboarding efficiently and securely. Track tasks, ensure compliance, and streamline the entire transition process with AI-powered insights and security scanning.
-                </p>
-              </div>
-              
-              <div style="background: #fff7ed; padding: 16px 20px; border-radius: 8px; margin: 24px 0; text-align: center;">
-                <p style="margin: 0; color: #9a3412; font-weight: 500;">
-                  <strong>🚀 Key Features:</strong> Task Management • Security Scanner • AI Insights • Exit Surveys
-                </p>
-              </div>
-              
-              <div style="text-align: center;">
-                <a href="${inviteLink}" class="button" style="background: linear-gradient(135deg, #9333ea 0%, #ec4899 100%); font-size: 16px; padding: 16px 40px;">
-                  Accept Invitation & Join →
-                </a>
-              </div>
-              
-              <div style="background: #fef3c7; padding: 16px 20px; border-radius: 8px; margin: 32px 0; text-align: center;">
-                <p style="margin: 0; color: #92400e; font-size: 14px;">
-                  <strong>⏰ This invitation expires in 7 days.</strong><br>
-                  If you didn't expect this invitation, you can safely ignore this email.
-                </p>
-              </div>
-              
-              <p style="margin-top: 32px; text-align: center; font-size: 16px;">
-                Looking forward to having you on the team!<br>
-                <strong style="color: #2563eb;">The OffboardPro Team</strong>
-              </p>
-            </div>
-            <div class="footer">
-              <p style="margin: 0;">© 2024 <strong>OffboardPro</strong>. All rights reserved.</p>
-              <p style="margin: 8px 0 0 0;">Secure Employee Offboarding Platform</p>
-            </div>
+        <body style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #2563eb;">🎉 You're Invited!</h1>
+          
+          <p>Hi there!</p>
+          
+          <p><strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> on OffboardPro.</p>
+          
+          <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb;">
+            <p style="margin: 0; color: #1e40af;"><strong>Your Role:</strong> ${role.replace('_', ' ').toUpperCase()}</p>
           </div>
+          
+          <p><strong>What is OffboardPro?</strong><br>
+          OffboardPro helps teams manage employee offboarding efficiently and securely. Track tasks, ensure compliance, and streamline the entire process.</p>
+          
+          <p style="text-align: center; margin: 30px 0;">
+            <a href="${inviteLink}" style="display: inline-block; background: #2563eb; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: 600;">Accept Invitation & Join</a>
+          </p>
+          
+          <div style="background: #fef3c7; padding: 15px; border-radius: 6px; margin: 20px 0;">
+            <p style="margin: 0; color: #92400e; font-size: 14px;">
+              <strong>⏰ This invitation expires in 7 days.</strong><br>
+              If you didn't expect this, you can safely ignore this email.
+            </p>
+          </div>
+          
+          <p style="color: #666; font-size: 14px; margin-top: 30px;">Or copy and paste this link:</p>
+          <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">${inviteLink}</p>
+          
+          <p style="margin-top: 30px;">Looking forward to having you on the team!<br>
+          <strong>The OffboardPro Team</strong></p>
+          
+          <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
+          <p style="color: #999; font-size: 12px;">© 2024 OffboardPro. Secure Employee Offboarding Platform</p>
         </body>
         </html>
       `,
       senderName: 'OffboardPro',
-  senderEmail: 'parthivmssince2005@gmail.com',
+      senderEmail: 'parthivmssince2005@gmail.com',
     })
 
     if (!result.success) {
@@ -905,6 +860,7 @@ export async function sendTeamInvitationEmail({
     return { success: false, error: error.message || 'Unknown error' }
   }
 }
+              
 
 export async function sendChurnAlertEmail({
   to,
