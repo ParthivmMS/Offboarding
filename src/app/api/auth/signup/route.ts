@@ -1,20 +1,22 @@
 // src/app/api/auth/signup/route.ts
-// DIAGNOSTIC VERSION v3 - Force email sending
+// FIXED VERSION - Creates user with trial fields from the start
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { checkTrialEligibility, startTrial } from '@/lib/trial'
+import { checkTrialEligibility } from '@/lib/trial'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+const TRIAL_DURATION_DAYS = 14
+
 export async function POST(request: Request) {
-  console.log('🔥🔥🔥 SIGNUP ROUTE CALLED - VERSION 3 🔥🔥🔥')
+  console.log('🔥 SIGNUP STARTED')
   
   try {
     const { organizationName, name, email, password } = await request.json()
     
-    console.log('🚀 SIGNUP STARTED:', { email, name, organizationName })
+    console.log('📧 Email:', email)
 
     if (!organizationName || !name || !email || !password) {
       return NextResponse.json(
@@ -35,19 +37,18 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    console.log('✅ Step 1: Checking trial eligibility...')
+    // Check trial eligibility
+    console.log('✅ Checking trial eligibility...')
     const eligibility = await checkTrialEligibility(email)
     
     if (!eligibility.eligible) {
-      console.log('❌ Trial not eligible:', eligibility.reason)
       return NextResponse.json(
         { error: eligibility.reason || 'Not eligible for trial' },
         { status: 400 }
       )
     }
-    console.log('✅ Trial eligible!')
 
-    console.log('✅ Step 2: Checking if user exists...')
+    // Check if user exists
     const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('id, email')
@@ -55,61 +56,53 @@ export async function POST(request: Request) {
       .single()
 
     if (existingUser) {
-      console.log('❌ User already exists')
       return NextResponse.json(
         { error: 'An account with this email already exists' },
         { status: 400 }
       )
     }
-    console.log('✅ User does not exist, proceeding...')
 
-    console.log('✅ Step 3: Creating Supabase Auth user...')
+    // Create auth user
+    console.log('✅ Creating auth user...')
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false, // Requires manual verification
+      email_confirm: false,
       user_metadata: {
         name,
         organization_name: organizationName,
       },
     })
 
-    if (authError) {
+    if (authError || !authData.user) {
       console.error('❌ Auth error:', authError)
       return NextResponse.json(
-        { error: authError.message },
+        { error: authError?.message || 'Failed to create user' },
         { status: 400 }
       )
     }
 
-    if (!authData.user) {
-      console.error('❌ No user returned from auth')
-      return NextResponse.json(
-        { error: 'Failed to create user' },
-        { status: 500 }
-      )
-    }
-
     const userId = authData.user.id
-    console.log('✅ Auth user created:', userId)
+    const emailDomain = email.split('@')[1]?.toLowerCase() || ''
+    const trialEndDate = new Date(Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000)
 
-    console.log('✅ Step 4: Starting trial...')
-    const trialStarted = await startTrial(userId, email)
-    console.log('Trial started:', trialStarted)
-
-    console.log('✅ Step 5: Creating user record...')
+    // ✅ CREATE USER WITH TRIAL FIELDS FROM THE START!
+    console.log('✅ Creating user record WITH TRIAL...')
     const { error: userInsertError } = await supabaseAdmin
       .from('users')
-      .upsert({
+      .insert({
         id: userId,
         email: email,
         name: name,
         password_hash: 'supabase_auth',
         is_active: false,
         role: 'user',
-      }, {
-        onConflict: 'id',
-        ignoreDuplicates: false
+        // ✅ TRIAL FIELDS
+        subscription_plan: 'professional',
+        subscription_status: 'trialing',
+        trial_started_at: new Date().toISOString(),
+        trial_ends_at: trialEndDate.toISOString(),
+        email_domain: emailDomain,
       })
 
     if (userInsertError) {
@@ -120,9 +113,27 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
-    console.log('✅ User record created')
 
-    console.log('✅ Step 6: Generating verification link...')
+    // ✅ LOG TRIAL USAGE (optional - for tracking)
+    try {
+      await supabaseAdmin
+        .from('trial_usage')
+        .insert({
+          user_id: userId,
+          email: email.toLowerCase(),
+          email_hash: btoa(email.toLowerCase()),
+          email_domain: emailDomain,
+          trial_started_at: new Date().toISOString()
+        })
+    } catch (logError) {
+      console.warn('⚠️ Trial logging failed:', logError)
+      // Don't fail signup if logging fails
+    }
+
+    console.log('✅ User created with Professional trial!')
+
+    // Generate verification link
+    console.log('✅ Generating verification link...')
     const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'signup',
       email: email,
@@ -143,77 +154,42 @@ export async function POST(request: Request) {
     }
 
     const verificationLink = linkData.properties.action_link
-    console.log('✅ Verification link generated:', verificationLink.substring(0, 80))
 
-    // ============================================
-    // STEP 7: SEND EMAIL - CRITICAL SECTION
-    // ============================================
-    console.log('🔥🔥🔥 STARTING STEP 7 - EMAIL SENDING 🔥🔥🔥')
-    console.log('📧 Email API URL:', `${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`)
-    console.log('📧 Recipient:', email)
-    console.log('📧 Organization:', organizationName)
-
-    const emailPayload = {
-      type: 'email_verification',
-      to: email,
-      data: {
-        name: name,
-        verificationLink: verificationLink,
-        organizationName: organizationName,
-      }
-    }
-    
-    console.log('📧 Full email payload:', JSON.stringify(emailPayload, null, 2))
-
+    // Send verification email
+    console.log('✅ Sending verification email...')
     try {
-      console.log('📤 Calling email API...')
-      
       const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/send-email`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailPayload)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'email_verification',
+          to: email,
+          data: {
+            name: name,
+            verificationLink: verificationLink,
+            organizationName: organizationName,
+          }
+        })
       })
 
-      console.log('📬 Email API response status:', emailResponse.status)
-      console.log('📬 Email API response ok:', emailResponse.ok)
-      
-      const emailResponseText = await emailResponse.text()
-      console.log('📬 Email API response body:', emailResponseText)
-
       if (!emailResponse.ok) {
-        console.error('❌❌❌ EMAIL API RETURNED ERROR ❌❌❌')
-        console.error('Status:', emailResponse.status)
-        console.error('Body:', emailResponseText)
-        
-        // DON'T fail signup - just log the error
-        console.warn('⚠️ Email failed but continuing with signup')
+        console.error('❌ Email failed:', await emailResponse.text())
       } else {
-        console.log('✅✅✅ EMAIL SENT SUCCESSFULLY ✅✅✅')
+        console.log('✅ Email sent successfully!')
       }
-    } catch (emailError: any) {
-      console.error('❌❌❌ EMAIL SEND EXCEPTION ❌❌❌')
-      console.error('Error:', emailError)
-      console.error('Error message:', emailError.message)
-      console.error('Error stack:', emailError.stack)
-      
-      // DON'T fail signup - just log the error
-      console.warn('⚠️ Email exception but continuing with signup')
+    } catch (emailError) {
+      console.error('❌ Email error:', emailError)
     }
 
-    console.log('🔥🔥🔥 STEP 7 COMPLETE 🔥🔥🔥')
     console.log('✅ ✅ ✅ SIGNUP COMPLETE!')
 
     return NextResponse.json({
       success: true,
-      message: 'Account created! Please check your email (including spam folder) to verify.',
+      message: 'Account created! Check your email to verify and start your 14-day Professional trial.',
       requiresVerification: true,
     })
   } catch (error: any) {
     console.error('❌ Signup error:', error)
-    console.error('❌ Error message:', error.message)
-    console.error('❌ Error stack:', error.stack)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
