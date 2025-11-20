@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
           </html>
         `
         
-        // ✅ Use the SAME sender as test email
         result = await sendBrevoEmail({
           to: [to],
           subject: 'Verify Your Email - OffboardPro',
@@ -70,7 +69,14 @@ export async function POST(request: NextRequest) {
         break
         
       case 'team_invitation':
-        result = await sendTeamInvitationEmail(params)
+        // ✅ FIXED: Now includes 'to' parameter
+        result = await sendTeamInvitationEmail({
+          to: Array.isArray(to) ? to : [to],
+          inviterName: params.inviterName,
+          organizationName: params.organizationName,
+          role: params.role,
+          inviteLink: params.inviteLink,
+        })
         break
         
       case 'churn_alert':
