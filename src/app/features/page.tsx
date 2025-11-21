@@ -47,15 +47,8 @@ export default function FeaturesPage() {
     {
       icon: Lock,
       title: 'Enterprise Security',
-      description: 'Bank-level encryption, SOC 2 compliance, and advanced security features for enterprise customers.',
-      benefits: ['End-to-end encryption', 'SSO/SAML (coming)', 'Audit logs', 'Data residency'],
-      premium: true
-    },
-    {
-      icon: Zap,
-      title: 'API Access',
-      description: 'Integrate OffboardPro with your existing tools using our comprehensive REST API.',
-      benefits: ['RESTful API', 'Webhooks', 'API documentation', 'Rate limiting'],
+      description: 'Bank-level encryption, SOC 2 compliance, and advanced security features.',
+      benefits: ['End-to-end encryption', 'Audit logs', 'Data residency', 'Compliance reporting'],
       premium: true
     },
     {
@@ -135,25 +128,6 @@ export default function FeaturesPage() {
       cta: 'Start Free Trial',
       ctaLink: '/signup',
       popular: true
-    },
-    {
-      name: 'Enterprise',
-      price: '$399',
-      description: 'For large organizations',
-      originalPrice: '$499',
-      features: [
-        'Unlimited team members',
-        'Unlimited offboardings',
-        'All Professional features',
-        'API access',
-        'Custom workflows',
-        'Dedicated support',
-        'SSO/SAML (coming)',
-        'Custom contracts'
-      ],
-      cta: 'Contact Sales',
-      ctaLink: '/signup',
-      popular: false
     }
   ]
 
@@ -237,7 +211,7 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* Pricing Section */}
+      {/* Pricing Section - ONLY 3 PLANS NOW */}
       <section className="py-20 px-4 bg-slate-50">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -248,7 +222,7 @@ export default function FeaturesPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
             {plans.map((plan, index) => (
               <div key={index} className={`bg-white rounded-xl border-2 p-8 ${plan.popular ? 'border-blue-500 shadow-xl scale-105' : 'border-slate-200'} relative`}>
                 {plan.popular && (
@@ -312,4 +286,4 @@ export default function FeaturesPage() {
       </footer>
     </div>
   )
-                  }
+}
