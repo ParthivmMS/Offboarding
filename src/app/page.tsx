@@ -173,7 +173,7 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Pricing - ONLY 2 PLANS NOW */}
       <section className="bg-slate-50 py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-5xl mx-auto text-center">
@@ -184,19 +184,20 @@ export default async function Home() {
               90% cheaper than competitors. No per-user fees.
             </p>
 
-            <div className="grid md:grid-cols-3 gap-8">
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
               {/* Starter */}
               <div className="bg-white p-8 rounded-2xl border-2 border-slate-200">
                 <h3 className="font-semibold text-lg mb-2">Starter</h3>
                 <div className="text-4xl font-bold mb-4">$79<span className="text-lg text-slate-600">/mo</span></div>
+                <p className="text-slate-600 mb-6">For small teams getting started</p>
                 <ul className="space-y-3 text-left mb-6">
                   <li className="flex items-start gap-2">
                     <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span>Up to 10 offboardings/month</span>
+                    <span>Up to 25 team members</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span>Unlimited users</span>
+                    <span>10 offboardings/month</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
@@ -205,6 +206,10 @@ export default async function Home() {
                   <li className="flex items-start gap-2">
                     <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                     <span>Email notifications</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                    <span>Priority email support</span>
                   </li>
                 </ul>
                 <Link href="/signup">
@@ -220,10 +225,15 @@ export default async function Home() {
                 </div>
                 <h3 className="font-semibold text-lg mb-2">Professional</h3>
                 <div className="text-4xl font-bold mb-4">$149<span className="text-lg opacity-80">/mo</span></div>
+                <p className="opacity-90 mb-6">For growing companies</p>
                 <ul className="space-y-3 text-left mb-6">
                   <li className="flex items-start gap-2">
                     <Check className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                    <span>Everything in Starter</span>
+                    <span>Up to 100 team members</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <span>50 offboardings/month</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -235,7 +245,7 @@ export default async function Home() {
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-5 h-5 flex-shrink-0 mt-0.5" />
-                    <span>Unlimited offboardings</span>
+                    <span>📊 Exit surveys</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Check className="w-5 h-5 flex-shrink-0 mt-0.5" />
@@ -245,31 +255,6 @@ export default async function Home() {
                 <Link href="/signup">
                   <Button className="w-full bg-white text-blue-600 hover:bg-slate-100">Start Trial</Button>
                 </Link>
-              </div>
-
-              {/* Enterprise */}
-              <div className="bg-white p-8 rounded-2xl border-2 border-slate-200">
-                <h3 className="font-semibold text-lg mb-2">Enterprise</h3>
-                <div className="text-4xl font-bold mb-4">Custom</div>
-                <ul className="space-y-3 text-left mb-6">
-                  <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span>Everything in Professional</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span>White-label branding</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span>Dedicated account manager</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                    <span>Custom integrations</span>
-                  </li>
-                </ul>
-                <Button variant="outline" className="w-full">Contact Sales</Button>
               </div>
             </div>
           </div>
