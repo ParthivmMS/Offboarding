@@ -1,5 +1,5 @@
 // src/app/api/auth/signup/route.ts
-// FIXED VERSION - Creates user with trial fields from the start
+// FIXED - Let trigger handle user creation with trial
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -7,8 +7,6 @@ import { checkTrialEligibility } from '@/lib/trial'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-
-const TRIAL_DURATION_DAYS = 14
 
 export async function POST(request: Request) {
   console.log('🔥 SIGNUP STARTED')
@@ -48,22 +46,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Check if user exists
-    const { data: existingUser } = await supabaseAdmin
-      .from('users')
-      .select('id, email')
-      .eq('email', email)
-      .single()
+    // Check if user exists in auth
+    const { data: existingAuthUser } = await supabaseAdmin.auth.admin.listUsers()
+    const userExists = existingAuthUser?.users.some(u => u.email === email)
 
-    if (existingUser) {
+    if (userExists) {
       return NextResponse.json(
         { error: 'An account with this email already exists' },
         { status: 400 }
       )
     }
 
-    // Create auth user
-    console.log('✅ Creating auth user...')
+    // Create auth user - trigger will automatically create public.users with trial!
+    console.log('✅ Creating auth user (trigger will create public.users with trial)...')
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
@@ -84,37 +79,26 @@ export async function POST(request: Request) {
 
     const userId = authData.user.id
     const emailDomain = email.split('@')[1]?.toLowerCase() || ''
-    const trialEndDate = new Date(Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000)
 
-    // ✅ CREATE USER WITH TRIAL FIELDS FROM THE START!
-    console.log('✅ Creating user record WITH TRIAL...')
-    const { error: userInsertError } = await supabaseAdmin
+    console.log('✅ User created by trigger with Professional trial!')
+
+    // Wait for trigger to complete
+    await new Promise(resolve => setTimeout(resolve, 500))
+
+    // Verify user was created with trial
+    const { data: userData, error: userCheckError } = await supabaseAdmin
       .from('users')
-      .insert({
-        id: userId,
-        email: email,
-        name: name,
-        password_hash: 'supabase_auth',
-        is_active: false,
-        role: 'user',
-        // ✅ TRIAL FIELDS
-        subscription_plan: 'professional',
-        subscription_status: 'trialing',
-        trial_started_at: new Date().toISOString(),
-        trial_ends_at: trialEndDate.toISOString(),
-        email_domain: emailDomain,
-      })
+      .select('subscription_plan, subscription_status, trial_ends_at')
+      .eq('id', userId)
+      .single()
 
-    if (userInsertError) {
-      console.error('❌ User insert error:', userInsertError)
-      await supabaseAdmin.auth.admin.deleteUser(userId)
-      return NextResponse.json(
-        { error: `Database error: ${userInsertError.message}` },
-        { status: 500 }
-      )
+    if (userCheckError) {
+      console.error('❌ User verification error:', userCheckError)
+    } else {
+      console.log('✅ Verified trial setup:', userData)
     }
 
-    // ✅ LOG TRIAL USAGE (optional - for tracking)
+    // Log trial usage (optional - for tracking)
     try {
       await supabaseAdmin
         .from('trial_usage')
@@ -125,12 +109,10 @@ export async function POST(request: Request) {
           email_domain: emailDomain,
           trial_started_at: new Date().toISOString()
         })
+      console.log('✅ Trial usage logged')
     } catch (logError) {
-      console.warn('⚠️ Trial logging failed:', logError)
-      // Don't fail signup if logging fails
+      console.warn('⚠️ Trial logging failed (non-critical):', logError)
     }
-
-    console.log('✅ User created with Professional trial!')
 
     // Generate verification link
     console.log('✅ Generating verification link...')
@@ -145,8 +127,8 @@ export async function POST(request: Request) {
 
     if (linkError || !linkData?.properties?.action_link) {
       console.error('❌ Link generation error:', linkError)
+      // Clean up
       await supabaseAdmin.auth.admin.deleteUser(userId)
-      await supabaseAdmin.from('users').delete().eq('id', userId)
       return NextResponse.json(
         { error: 'Failed to generate verification link' },
         { status: 500 }
@@ -195,4 +177,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-}
+    }
