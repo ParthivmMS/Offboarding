@@ -4,7 +4,7 @@ import { ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Lock, Sparkles, Shield, Mail, Crown } from 'lucide-react'
-import { hasFeatureAccess, getFeatureDisplayName, getPlanLimits, PLAN_LIMITS } from '@/lib/subscription'
+import { hasFeatureAccess, getFeatureDisplayName, getPlanLimits } from '@/lib/subscription'
 
 interface FeatureGateProps {
   feature: string
@@ -51,23 +51,8 @@ export default function FeatureGate({
   const featureName = getFeatureDisplayName(feature)
   const currentLimits = getPlanLimits(userPlan)
   
-  // Find which plan unlocks this feature
-let unlockPlan = 'Professional'
-
-// Map features to their unlock plans
-const featureUnlockPlan: Record<string, string> = {
-  'ai': 'Professional',
-  'ai_insights': 'Professional',
-  'security': 'Professional',
-  'security_scanner': 'Professional',
-  'surveys': 'Professional',
-  'exit_surveys': 'Professional',
-  'api': 'Enterprise',
-  'priority_support': 'Enterprise',
-  'custom_branding': 'Enterprise',
-}
-
-unlockPlan = featureUnlockPlan[feature.toLowerCase()] || 'Professional'
+  // All locked features now unlock with Professional (since Enterprise is removed)
+  const unlockPlan = 'Professional'
 
   return (
     <div className="border-2 border-dashed border-slate-300 rounded-xl p-12 text-center bg-gradient-to-br from-slate-50 to-slate-100">
@@ -162,16 +147,16 @@ unlockPlan = featureUnlockPlan[feature.toLowerCase()] || 'Professional'
           </Button>
           <Button 
             variant="outline"
-            onClick={() => router.push('/dashboard/help')}
+            onClick={() => router.push('/dashboard')}
             className="border-slate-300 hover:bg-slate-50"
           >
-            Learn More
+            Back to Dashboard
           </Button>
         </div>
 
         {/* Footer note */}
         <p className="text-xs text-slate-500 mt-6">
-          ⚡ Upgrade anytime • 14-day money-back guarantee
+          ⚡ Upgrade anytime • 14-day free trial
         </p>
       </div>
     </div>
