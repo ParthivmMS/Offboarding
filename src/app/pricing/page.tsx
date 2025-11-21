@@ -82,7 +82,6 @@ function PricingContent() {
     }
   }
 
-  // ✅ REMOVED ENTERPRISE PLAN
   const plans = [
     {
       name: 'Starter',
@@ -191,7 +190,7 @@ function PricingContent() {
         </div>
       </div>
 
-      {/* Pricing Cards - NOW ONLY 2 PLANS */}
+      {/* Pricing Cards - ONLY 2 PLANS */}
       <div className="container mx-auto px-4 pb-20">
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {plans.map((plan) => (
@@ -261,30 +260,6 @@ function PricingContent() {
               </CardContent>
             </Card>
           ))}
-        </div>
-
-        {/* ✅ NEW: Enterprise Contact Section */}
-        <div className="mt-12 text-center">
-          <Card className="max-w-2xl mx-auto border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-purple-50">
-            <CardHeader>
-              <CardTitle className="text-2xl">Need More Than 100 Team Members?</CardTitle>
-              <CardDescription className="text-base">
-                Contact us for custom Enterprise pricing tailored to your organization's needs.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <p className="text-sm text-gray-600">
-                  Enterprise features include unlimited team members, API access, custom integrations, SSO/SAML, and dedicated support.
-                </p>
-                <Link href="mailto:parthivmssince2005@gmail.com?subject=Enterprise Plan Inquiry">
-                  <Button size="lg" variant="outline" className="w-full md:w-auto">
-                    📧 Contact Sales
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
@@ -385,4 +360,4 @@ export default function PricingPage() {
       <PricingContent />
     </Suspense>
   )
-              }
+}
