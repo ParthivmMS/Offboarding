@@ -33,22 +33,9 @@ export const PLAN_LIMITS = {
     hasSecurityScanner: true,
     hasExitSurveys: true,
     hasAPI: false,
-    hasPrioritySupport: false,
+    hasPrioritySupport: true,
     hasCustomBranding: false,
   },
-  // ✅ TEMPORARILY COMMENTED OUT FOR PADDLE APPROVAL
-  // enterprise: {
-  //   name: 'Enterprise',
-  //   maxTeamMembers: Infinity,
-  //   maxOffboardingsPerMonth: Infinity,
-  //   maxTemplates: Infinity,
-  //   hasAI: true,
-  //   hasSecurityScanner: true,
-  //   hasExitSurveys: true,
-  //   hasAPI: true,
-  //   hasPrioritySupport: true,
-  //   hasCustomBranding: true,
-  // },
 }
 
 export type PlanName = keyof typeof PLAN_LIMITS
@@ -186,8 +173,6 @@ export function getPlanBadgeColor(plan?: string | null, subscriptionStatus?: str
       return 'bg-blue-100 text-blue-700 border-blue-200'
     case 'professional':
       return 'bg-purple-100 text-purple-700 border-purple-200'
-    // case 'enterprise':
-    //   return 'bg-amber-100 text-amber-700 border-amber-200'
     default:
       return 'bg-gray-100 text-gray-700 border-gray-200'
   }
