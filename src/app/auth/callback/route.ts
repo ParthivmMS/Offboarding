@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createRouteHandlerClient } from '@/lib/supabase/server' // ← CHANGED
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
 
@@ -17,7 +17,6 @@ export async function GET(request: NextRequest) {
   // Handle errors from OAuth provider
   if (error_code) {
     console.error('❌ OAuth Error:', error_description)
-    // Use meta refresh for error redirect too
     return new Response(`
       <!DOCTYPE html>
       <html>
@@ -35,7 +34,7 @@ export async function GET(request: NextRequest) {
   }
 
   if (code) {
-    const supabase = await createClient()
+    const supabase = await createRouteHandlerClient() // ← CHANGED - Now cookies will work!
 
     console.log('🔄 Exchanging OAuth code for session')
     
@@ -71,6 +70,8 @@ export async function GET(request: NextRequest) {
         .single()
 
       console.log('📊 User data:', {
+        userId: user.id,
+        userEmail: user.email,
         hasOrgId: !!userData?.organization_id,
         hasCurrentOrgId: !!userData?.current_organization_id
       })
@@ -84,7 +85,6 @@ export async function GET(request: NextRequest) {
       console.log('🎯 Redirecting to:', redirectUrl)
 
       // Use HTML meta refresh + JavaScript redirect
-      // This gives browser time to process Set-Cookie headers
       return new Response(`
         <!DOCTYPE html>
         <html>
@@ -157,14 +157,13 @@ export async function GET(request: NextRequest) {
             <div class="container">
               <div class="logo">👥</div>
               <div class="spinner"></div>
-              <h1>✅ Authentication Successful!</h1>
+              <h1>✅ Welcome, ${user.email}!</h1>
               <p>Setting up your account...</p>
               <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">
                 You'll be redirected to ${hasOrganization ? 'your dashboard' : 'complete setup'} in a moment.
               </p>
             </div>
             <script>
-              // Fallback JavaScript redirect after 1 second
               setTimeout(function() {
                 window.location.href = '${redirectUrl}';
               }, 1000);
