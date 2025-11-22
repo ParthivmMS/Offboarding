@@ -1,5 +1,5 @@
 // src/app/api/auth/signup/route.ts
-// FIXED - Let trigger handle user creation with trial
+// Custom email verification - redirects to login after verification
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,
+      email_confirm: false, // User must verify email
       user_metadata: {
         name,
         organization_name: organizationName,
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
       console.log('✅ Verified trial setup:', userData)
     }
 
-    // Log trial usage (optional - for tracking)
+    // Log trial usage
     try {
       await supabaseAdmin
         .from('trial_usage')
@@ -114,28 +114,11 @@ export async function POST(request: Request) {
       console.warn('⚠️ Trial logging failed (non-critical):', logError)
     }
 
-    // Generate verification link
-    console.log('✅ Generating verification link...')
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email: email,
-      password: password,
-      options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback?orgName=${encodeURIComponent(organizationName)}`
-      }
-    })
+    // ✅ Generate custom verification token
+    const verificationToken = Buffer.from(userId + email + Date.now()).toString('base64url')
+    const verificationLink = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/verify-email?token=${verificationToken}&user=${userId}`
 
-    if (linkError || !linkData?.properties?.action_link) {
-      console.error('❌ Link generation error:', linkError)
-      // Clean up
-      await supabaseAdmin.auth.admin.deleteUser(userId)
-      return NextResponse.json(
-        { error: 'Failed to generate verification link' },
-        { status: 500 }
-      )
-    }
-
-    const verificationLink = linkData.properties.action_link
+    console.log('✅ Custom verification link generated')
 
     // Send verification email
     console.log('✅ Sending verification email...')
@@ -177,4 +160,4 @@ export async function POST(request: Request) {
       { status: 500 }
     )
   }
-    }
+}
