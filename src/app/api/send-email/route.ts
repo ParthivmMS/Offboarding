@@ -21,7 +21,21 @@ export async function POST(request: NextRequest) {
 
     switch (type) {
       case 'email_verification':
-        // ✅ SIMPLE VERSION - Just like the test email
+        // ✅ DEBUG LOGGING
+        console.log('🔍 ===== EMAIL VERIFICATION DEBUG =====')
+        console.log('🔍 To:', to)
+        console.log('🔍 Name:', data.name)
+        console.log('🔍 Organization:', data.organizationName)
+        console.log('🔍 Verification Link (full):', data.verificationLink)
+        console.log('🔍 Verification Link (first 150 chars):', data.verificationLink?.substring(0, 150))
+        
+        // Check if link has code parameter
+        const hasCode = data.verificationLink?.includes('code=')
+        const hasToken = data.verificationLink?.includes('token=')
+        console.log('🔍 Link has "code=" parameter:', hasCode)
+        console.log('🔍 Link has "token=" parameter:', hasToken)
+        console.log('🔍 ===== END EMAIL DEBUG =====')
+        
         const htmlContent = `
           <html>
           <body style="font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: 0 auto;">
@@ -29,9 +43,35 @@ export async function POST(request: NextRequest) {
             <p>Hi ${data.name}!</p>
             <p>Thanks for signing up for <strong>${data.organizationName}</strong> on OffboardPro.</p>
             <p>Click the link below to verify your email and start your 14-day free trial:</p>
-            <p><a href="${data.verificationLink}" style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 16px 0;">Verify Email Address</a></p>
+            <p>
+              <a href="${data.verificationLink}" 
+                 style="display: inline-block; background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 16px 0;">
+                Verify Email Address
+              </a>
+            </p>
             <p style="color: #666; font-size: 14px;">Or copy and paste this link into your browser:</p>
-            <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">${data.verificationLink}</p>
+            <p style="background: #f5f5f5; padding: 10px; border-radius: 4px; word-break: break-all; font-size: 12px;">
+              ${data.verificationLink}
+            </p>
+            
+            <!-- DEBUG INFO IN EMAIL -->
+            <hr style="margin: 30px 0; border: 2px solid #e5e7eb;">
+            <div style="background: #fef3c7; padding: 15px; border-radius: 8px; border: 2px solid #f59e0b;">
+              <strong style="color: #92400e; font-size: 14px;">🔍 DEBUG INFORMATION:</strong><br>
+              <div style="font-family: monospace; font-size: 11px; margin-top: 10px; line-height: 1.8;">
+                <strong>To:</strong> ${to}<br>
+                <strong>Name:</strong> ${data.name}<br>
+                <strong>Organization:</strong> ${data.organizationName}<br>
+                <strong>Link contains "code=":</strong> ${hasCode ? '✅ YES' : '❌ NO'}<br>
+                <strong>Link contains "token=":</strong> ${hasToken ? '✅ YES' : '❌ NO'}<br>
+                <strong>Full Link:</strong><br>
+                <div style="background: white; padding: 8px; border-radius: 4px; word-break: break-all; margin-top: 5px;">
+                  ${data.verificationLink}
+                </div>
+              </div>
+            </div>
+            <hr style="margin: 30px 0; border: 2px solid #e5e7eb;">
+            
             <p style="margin-top: 30px;">Thanks,<br><strong>OffboardPro Team</strong></p>
             <hr style="border: none; border-top: 1px solid #ddd; margin: 30px 0;">
             <p style="color: #999; font-size: 12px;">If you didn't create an account, you can safely ignore this email.</p>
@@ -41,7 +81,7 @@ export async function POST(request: NextRequest) {
         
         result = await sendBrevoEmail({
           to: [to],
-          subject: 'Verify Your Email - OffboardPro',
+          subject: `🔍 Verify Your Email - OffboardPro (DEBUG: ${data.name})`,
           htmlContent,
           senderName: 'OffboardPro',
           senderEmail: 'parthivmssince2005@gmail.com',
@@ -69,7 +109,6 @@ export async function POST(request: NextRequest) {
         break
         
       case 'team_invitation':
-        // ✅ FIXED: Now includes 'to' parameter
         result = await sendTeamInvitationEmail({
           to: Array.isArray(to) ? to : [to],
           inviterName: params.inviterName,
