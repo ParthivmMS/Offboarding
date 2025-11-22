@@ -2,7 +2,6 @@
 import { createRouteHandlerClient } from '@/lib/supabase/server'
 import { NextRequest } from 'next/server'
 
-// ✅ Handle both GET and POST
 export async function GET(request: NextRequest) {
   return handleAuthCallback(request)
 }
@@ -11,16 +10,22 @@ export async function POST(request: NextRequest) {
   return handleAuthCallback(request)
 }
 
-// Shared handler function
 async function handleAuthCallback(request: NextRequest) {
   const requestUrl = new URL(request.url)
+  
+  // ✅ FIX: Check for BOTH code AND token parameters!
   const code = requestUrl.searchParams.get('code')
+  const token = requestUrl.searchParams.get('token')
+  const verificationCode = code || token  // Use whichever exists
+  
   const error_code = requestUrl.searchParams.get('error_code')
   const error_description = requestUrl.searchParams.get('error_description')
 
   console.log('🔍 ===== AUTH CALLBACK DEBUG START =====')
   console.log('🔍 Method:', request.method)
-  console.log('🔍 Code:', code?.substring(0, 20) + '...')
+  console.log('🔍 Code param:', code?.substring(0, 20) + '...')
+  console.log('🔍 Token param:', token?.substring(0, 20) + '...')
+  console.log('🔍 Using:', verificationCode ? 'Found!' : 'None')
   console.log('🔍 Error:', error_code, error_description)
 
   // Handle errors
@@ -40,13 +45,13 @@ async function handleAuthCallback(request: NextRequest) {
     })
   }
 
-  if (code) {
+  if (verificationCode) {
     const supabase = await createRouteHandlerClient()
 
-    console.log('🔄 Step 1: Exchanging code for session...')
+    console.log('🔄 Step 1: Exchanging verification code for session...')
     
-    // Exchange code for session
-    const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+    // Exchange code/token for session
+    const { data, error } = await supabase.auth.exchangeCodeForSession(verificationCode)
 
     console.log('🔍 Step 2: Exchange result:', {
       hasUser: !!data.user,
@@ -115,7 +120,7 @@ async function handleAuthCallback(request: NextRequest) {
       console.log('🎯 Step 7: Redirecting to:', redirectUrl)
       console.log('🔍 ===== AUTH CALLBACK DEBUG END =====')
 
-      // Return response with debug info
+      // Return response
       return new Response(`
         <!DOCTYPE html>
         <html>
@@ -156,15 +161,6 @@ async function handleAuthCallback(request: NextRequest) {
               }
               h1 { font-size: 24px; margin-bottom: 12px; }
               p { font-size: 16px; opacity: 0.9; line-height: 1.5; margin-bottom: 10px; }
-              .debug {
-                background: rgba(0, 0, 0, 0.3);
-                padding: 15px;
-                border-radius: 8px;
-                font-size: 12px;
-                margin-top: 20px;
-                text-align: left;
-                font-family: monospace;
-              }
               .logo {
                 width: 60px;
                 height: 60px;
@@ -182,18 +178,11 @@ async function handleAuthCallback(request: NextRequest) {
             <div class="container">
               <div class="logo">👥</div>
               <div class="spinner"></div>
-              <h1>✅ Authentication Successful!</h1>
-              <p><strong>Logged in as: ${data.user.email}</strong></p>
+              <h1>✅ Welcome, ${data.user.email}!</h1>
               <p>Setting up your account...</p>
-              
-              <div class="debug">
-                <strong>🔍 Debug Info:</strong><br>
-                User ID: ${data.user.id}<br>
-                Email: ${data.user.email}<br>
-                Session: ${currentSession?.user?.email || 'NO SESSION'}<br>
-                Match: ${currentSession?.user?.email === data.user.email ? '✅ YES' : '❌ NO'}<br>
-                Redirect: ${hasOrganization ? 'Dashboard' : 'Setup'}
-              </div>
+              <p style="font-size: 14px; opacity: 0.7; margin-top: 20px;">
+                Redirecting in 2 seconds...
+              </p>
             </div>
             <script>
               console.log('🔍 CLIENT: Logged in as:', '${data.user.email}');
@@ -216,7 +205,7 @@ async function handleAuthCallback(request: NextRequest) {
   }
 
   // Fallback
-  console.log('⚠️ No code found, redirecting to login')
+  console.log('⚠️ No code or token found, redirecting to login')
   return new Response(`
     <!DOCTYPE html>
     <html>
