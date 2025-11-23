@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation' // ✅ CHANGED: Import useParams
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -11,8 +11,8 @@ import { Users, Loader2, CheckCircle, XCircle, AlertTriangle } from 'lucide-reac
 
 function AcceptInviteContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const token = searchParams?.get('token')
+  const params = useParams() // ✅ CHANGED: Use useParams instead of useSearchParams
+  const token = params.token as string // ✅ CHANGED: Get token from URL segment
   
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
