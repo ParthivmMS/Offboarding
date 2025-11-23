@@ -196,12 +196,33 @@ export default function OrganizationSwitcher() {
         return
       }
 
-      alert('✅ Step 4: Organization switched successfully! Reloading page...')
+      if (!functionResult) {
+        alert('⚠️ Step 4: Function returned FALSE or NULL: ' + JSON.stringify(functionResult))
+        setSwitching(false)
+        return
+      }
+
+      // Verify the update actually happened
+      const { data: verifyData } = await supabase
+        .from('users')
+        .select('current_organization_id')
+        .eq('id', user.id)
+        .single()
+
+      console.log('🔍 Verification check:', verifyData)
+
+      if (verifyData?.current_organization_id !== orgId) {
+        alert('❌ Step 5 FAILED: Database shows org ID: ' + verifyData?.current_organization_id?.substring(0, 8) + '... but expected: ' + orgId.substring(0, 8) + '...')
+        setSwitching(false)
+        return
+      }
+
+      alert('✅ Step 4: Organization switched successfully! Verified in DB. Reloading page...')
       
-      // Reload the page to refresh all data
+      // Wait a bit longer for database to commit, then reload
       setTimeout(() => {
-        window.location.href = '/dashboard'
-      }, 500)
+        window.location.href = '/dashboard?t=' + Date.now() // Add timestamp to force fresh load
+      }, 1000) // Increased to 1 second
     } catch (error: any) {
       console.error('💥 Catch block error:', error)
       alert('❌ EXCEPTION: ' + (error?.message || JSON.stringify(error)))
