@@ -43,7 +43,13 @@ function AcceptInviteContent() {
     const supabase = createClient()
     
     try {
+      console.log('🔍 ===== STARTING INVITATION VERIFICATION =====')
+      console.log('🔍 Token received:', token)
+      console.log('🔍 Token type:', typeof token)
+      console.log('🔍 Token length:', token?.length)
+      
       // Check if invitation exists and is valid
+      console.log('📤 Querying invitations table...')
       const { data: invite, error: inviteError } = await supabase
         .from('invitations')
         .select('*, organization:organizations(name)')
@@ -51,18 +57,49 @@ function AcceptInviteContent() {
         .eq('status', 'pending')
         .maybeSingle()
 
-      if (inviteError || !invite) {
+      console.log('📊 ===== QUERY RESULTS =====')
+      console.log('📊 Invite data:', invite)
+      console.log('📊 Invite error:', inviteError)
+      console.log('📊 Full invite object:', JSON.stringify(invite, null, 2))
+      console.log('📊 Full error object:', JSON.stringify(inviteError, null, 2))
+
+      if (inviteError) {
+        console.error('❌ Database error occurred:', inviteError.message)
+        console.error('❌ Error code:', inviteError.code)
+        console.error('❌ Error details:', inviteError.details)
         setError('This invitation is invalid or has already been used')
         setLoading(false)
         return
       }
 
+      if (!invite) {
+        console.error('❌ No invitation found with token:', token)
+        setError('This invitation is invalid or has already been used')
+        setLoading(false)
+        return
+      }
+
+      console.log('✅ Invitation found!')
+      console.log('✅ Email:', invite.email)
+      console.log('✅ Status:', invite.status)
+      console.log('✅ Org ID:', invite.organization_id)
+      console.log('✅ Expires at:', invite.expires_at)
+
       // Check if invitation is expired
-      if (new Date(invite.expires_at) < new Date()) {
+      const expiresAt = new Date(invite.expires_at)
+      const now = new Date()
+      console.log('⏰ Current time:', now.toISOString())
+      console.log('⏰ Expiry time:', expiresAt.toISOString())
+      console.log('⏰ Is expired?', expiresAt < now)
+      
+      if (expiresAt < now) {
+        console.error('❌ Invitation has expired')
         setError('This invitation has expired')
         setLoading(false)
         return
       }
+
+      console.log('✅ Invitation is valid and not expired!')
 
       setInvitation(invite)
       setFormData(prev => ({ ...prev, email: invite.email }))
