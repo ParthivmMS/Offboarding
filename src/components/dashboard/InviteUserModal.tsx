@@ -217,10 +217,10 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       const token = inviteResult[0].token
       console.log('✅ Invitation created with token:', token.substring(0, 10) + '...')
 
-      // Generate invitation link
+      // ✅ FIX: Generate invitation link with token as URL segment (not query param)
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
                      (typeof window !== 'undefined' ? window.location.origin : 'https://offboarding.vercel.app')
-      const inviteLink = `${appUrl}/accept-invite?token=${token}`
+      const inviteLink = `${appUrl}/accept-invite/${token}` // ✅ FIXED: Token in URL path
       
       console.log('🔗 Invitation link:', inviteLink)
       
@@ -414,4 +414,4 @@ export default function InviteUserModal({ onClose, onSuccess }: InviteUserModalP
       </DialogContent>
     </Dialog>
   )
-  }
+}
