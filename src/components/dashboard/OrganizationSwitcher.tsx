@@ -135,16 +135,27 @@ export default function OrganizationSwitcher() {
   }
 
   async function handleSwitchOrganization(orgId: string) {
-    if (orgId === currentOrg?.id) return
+    if (orgId === currentOrg?.id) {
+      alert('⚠️ Already on this organization')
+      return
+    }
 
     try {
+      alert('🔄 Step 1: Starting switch to org ID: ' + orgId.substring(0, 8) + '...')
       setSwitching(true)
       
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        alert('❌ Step 2 FAILED: No user found in session!')
+        setSwitching(false)
+        return
+      }
+      
+      alert('✅ Step 2: User found: ' + user.id.substring(0, 8) + '...')
 
       // Verify user is member of this organization
-      const { data: membership } = await supabase
+      console.log('🔍 Checking membership for user:', user.id, 'org:', orgId)
+      const { data: membership, error: memberError } = await supabase
         .from('organization_members')
         .select('id')
         .eq('user_id', user.id)
@@ -152,29 +163,49 @@ export default function OrganizationSwitcher() {
         .eq('is_active', true)
         .maybeSingle()
 
-      if (!membership) {
-        alert('You are not a member of this organization')
+      console.log('👥 Membership result:', membership)
+      console.log('❌ Membership error:', memberError)
+
+      if (memberError) {
+        alert('❌ Step 3 FAILED: Error checking membership: ' + JSON.stringify(memberError))
         setSwitching(false)
         return
       }
 
+      if (!membership) {
+        alert('❌ Step 3 FAILED: You are not a member of this organization')
+        setSwitching(false)
+        return
+      }
+
+      alert('✅ Step 3: Membership verified (ID: ' + membership.id.substring(0, 8) + '...)')
+
       // Update current organization
-      const { error } = await supabase
+      console.log('📝 Updating current_organization_id to:', orgId)
+      const { data: updateData, error: updateError } = await supabase
         .from('users')
         .update({ current_organization_id: orgId })
         .eq('id', user.id)
+        .select()
 
-      if (error) {
-        alert('Failed to switch organization')
+      console.log('📊 Update result:', updateData)
+      console.log('❌ Update error:', updateError)
+
+      if (updateError) {
+        alert('❌ Step 4 FAILED: Database update error: ' + JSON.stringify(updateError))
         setSwitching(false)
         return
       }
 
+      alert('✅ Step 4: Database updated successfully! Reloading page...')
+      
       // Reload the page to refresh all data
-      window.location.href = '/dashboard'
-    } catch (error) {
-      console.error('Error switching organization:', error)
-      alert('Failed to switch organization')
+      setTimeout(() => {
+        window.location.href = '/dashboard'
+      }, 500)
+    } catch (error: any) {
+      console.error('💥 Catch block error:', error)
+      alert('❌ EXCEPTION: ' + (error?.message || JSON.stringify(error)))
       setSwitching(false)
     }
   }
@@ -350,4 +381,4 @@ export default function OrganizationSwitcher() {
       </Dialog>
     </>
   )
-}
+                  }
