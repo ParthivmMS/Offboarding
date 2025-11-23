@@ -180,24 +180,23 @@ export default function OrganizationSwitcher() {
 
       alert('✅ Step 3: Membership verified (ID: ' + membership.id.substring(0, 8) + '...)')
 
-      // Update current organization
-      console.log('📝 Updating current_organization_id to:', orgId)
-      const { data: updateData, error: updateError } = await supabase
-        .from('users')
-        .update({ current_organization_id: orgId })
-        .eq('id', user.id)
-        .select()
+      // Update current organization using SECURITY DEFINER function
+      console.log('📝 Calling switch_user_organization function for org:', orgId)
+      const { data: functionResult, error: functionError } = await supabase
+        .rpc('switch_user_organization', {
+          new_org_id: orgId
+        })
 
-      console.log('📊 Update result:', updateData)
-      console.log('❌ Update error:', updateError)
+      console.log('📊 Function result:', functionResult)
+      console.log('❌ Function error:', functionError)
 
-      if (updateError) {
-        alert('❌ Step 4 FAILED: Database update error: ' + JSON.stringify(updateError))
+      if (functionError) {
+        alert('❌ Step 4 FAILED: Function error: ' + JSON.stringify(functionError))
         setSwitching(false)
         return
       }
 
-      alert('✅ Step 4: Database updated successfully! Reloading page...')
+      alert('✅ Step 4: Organization switched successfully! Reloading page...')
       
       // Reload the page to refresh all data
       setTimeout(() => {
@@ -381,4 +380,4 @@ export default function OrganizationSwitcher() {
       </Dialog>
     </>
   )
-                  }
+}
