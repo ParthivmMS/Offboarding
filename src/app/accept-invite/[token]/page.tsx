@@ -48,11 +48,11 @@ function AcceptInviteContent() {
       console.log('🔍 Token type:', typeof token)
       console.log('🔍 Token length:', token?.length)
       
-      // Check if invitation exists and is valid
-      console.log('📤 Querying invitations table...')
+      // Check if invitation exists and is valid (NO JOINS to avoid RLS issues)
+      console.log('📤 Querying invitations table (without joins)...')
       const { data: invite, error: inviteError } = await supabase
         .from('invitations')
-        .select('*, organization:organizations(name)')
+        .select('*')  // ✅ NO JOINS - avoids RLS permission errors
         .eq('token', token)
         .eq('status', 'pending')
         .maybeSingle()
@@ -84,6 +84,28 @@ function AcceptInviteContent() {
       console.log('✅ Status:', invite.status)
       console.log('✅ Org ID:', invite.organization_id)
       console.log('✅ Expires at:', invite.expires_at)
+
+      // Fetch organization name separately (this will work after user logs in)
+      if (invite.organization_id) {
+        console.log('🏢 Fetching organization name...')
+        const { data: orgData, error: orgError } = await supabase
+          .from('organizations')
+          .select('name')
+          .eq('id', invite.organization_id)
+          .maybeSingle()
+        
+        if (orgError) {
+          console.warn('⚠️ Could not fetch organization name:', orgError)
+          // Don't fail - just use a placeholder
+          invite.organization = { name: 'Your New Organization' }
+        } else if (orgData) {
+          console.log('✅ Organization name:', orgData.name)
+          invite.organization = orgData
+        } else {
+          console.warn('⚠️ No organization found')
+          invite.organization = { name: 'Unknown Organization' }
+        }
+      }
 
       // Check if invitation is expired
       const expiresAt = new Date(invite.expires_at)
