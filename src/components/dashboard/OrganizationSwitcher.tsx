@@ -112,20 +112,35 @@ export default function OrganizationSwitcher() {
       setSwitching(true)
       
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      if (!user) {
+        alert('No user session found')
+        setSwitching(false)
+        return
+      }
+
+      console.log('🔄 Switching to org:', orgId)
+      console.log('👤 User ID:', user.id)
 
       // Use the SECURITY DEFINER function
-      const { error } = await supabase.rpc('switch_user_organization', {
+      const { data, error } = await supabase.rpc('switch_user_organization', {
         new_org_id: orgId
       })
 
-      if (error) throw error
+      console.log('📊 Function result:', data)
+      console.log('❌ Function error:', error)
 
-      // Reload page
+      if (error) {
+        alert('Switch failed: ' + error.message)
+        setSwitching(false)
+        return
+      }
+
+      // Success - reload page
+      console.log('✅ Switch successful, reloading...')
       window.location.href = '/dashboard'
     } catch (error: any) {
-      console.error('Error switching organization:', error)
-      alert('Failed to switch organization: ' + error.message)
+      console.error('💥 Catch error:', error)
+      alert('Failed to switch: ' + (error.message || JSON.stringify(error)))
       setSwitching(false)
     }
   }
@@ -304,4 +319,4 @@ export default function OrganizationSwitcher() {
       </Dialog>
     </>
   )
-      }
+}
