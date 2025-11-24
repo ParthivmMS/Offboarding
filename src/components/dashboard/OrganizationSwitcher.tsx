@@ -63,22 +63,21 @@ export default function OrganizationSwitcher() {
 
       console.log('✅ User ID:', user.id)
 
-      // Get current organization ID
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('current_organization_id')
-        .eq('id', user.id)
-        .maybeSingle()
+      // Get current organization ID using SECURITY DEFINER function
+      const { data: userDataArray, error: userError } = await supabase
+        .rpc('get_current_user_org')
 
-      console.log('📊 User data:', userData)
+      console.log('📊 User data from function:', userDataArray)
       console.log('❌ User error:', userError)
 
-      if (userData?.current_organization_id) {
+      const userData = userDataArray?.[0] // Function returns array, get first element
+
+      if (userData?.current_org_id) {
         // Get current organization details
         const { data: orgData, error: orgError } = await supabase
           .from('organizations')
           .select('id, name')
-          .eq('id', userData.current_organization_id)
+          .eq('id', userData.current_org_id)
           .maybeSingle()
 
         console.log('🏢 Current org data:', orgData)
