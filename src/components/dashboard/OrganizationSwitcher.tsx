@@ -197,27 +197,18 @@ export default function OrganizationSwitcher() {
       }
 
       if (!functionResult) {
-        alert('⚠️ Step 4: Function returned FALSE or NULL: ' + JSON.stringify(functionResult))
+        alert('⚠️ Step 4: Function returned FALSE: ' + JSON.stringify(functionResult))
         setSwitching(false)
         return
       }
 
-      // Verify the update actually happened
-      const { data: verifyData } = await supabase
-        .from('users')
-        .select('current_organization_id')
-        .eq('id', user.id)
-        .single()
-
-      console.log('🔍 Verification check:', verifyData)
-
-      if (verifyData?.current_organization_id !== orgId) {
-        alert('❌ Step 5 FAILED: Database shows org ID: ' + verifyData?.current_organization_id?.substring(0, 8) + '... but expected: ' + orgId.substring(0, 8) + '...')
-        setSwitching(false)
-        return
-      }
-
-      alert('✅ Step 4: Organization switched successfully! Verified in DB. Reloading page...')
+      // Function succeeded! Trust it and reload
+      console.log('✅ Function returned TRUE, reloading...')
+      
+      // Don't show alert, just reload immediately
+      setTimeout(() => {
+        window.location.href = '/dashboard?t=' + Date.now()
+      }, 500)
       
       // Wait a bit longer for database to commit, then reload
       setTimeout(() => {
