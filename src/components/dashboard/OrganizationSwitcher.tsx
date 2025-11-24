@@ -58,27 +58,37 @@ export default function OrganizationSwitcher() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Get user's current organization directly (should work with existing policies)
-      const { data: userData } = await supabase
-        .from('users')
-        .select('current_organization_id')
-        .eq('id', user.id)
-        .single()
+      console.log('👤 Loading orgs for user:', user.id)
+
+      // Use SECURITY DEFINER function to bypass RLS
+      const { data: userDataArray, error: userError } = await supabase
+        .rpc('get_current_user_org')
+
+      console.log('📊 User data from function:', userDataArray)
+      console.log('❌ User error:', userError)
+
+      const userData = userDataArray?.[0]
 
       // Get memberships
-      const { data: memberships } = await supabase
+      const { data: memberships, error: memberError } = await supabase
         .from('organization_members')
         .select('id, role, organization_id')
         .eq('user_id', user.id)
         .eq('is_active', true)
 
+      console.log('👥 Memberships:', memberships)
+      console.log('❌ Member error:', memberError)
+
       if (memberships && memberships.length > 0) {
         // Get org details
         const orgIds = memberships.map(m => m.organization_id)
-        const { data: orgs } = await supabase
+        const { data: orgs, error: orgError } = await supabase
           .from('organizations')
           .select('id, name')
           .in('id', orgIds)
+
+        console.log('🏢 Organizations:', orgs)
+        console.log('❌ Org error:', orgError)
 
         if (orgs) {
           const fullMemberships = memberships.map(m => ({
@@ -89,17 +99,22 @@ export default function OrganizationSwitcher() {
           
           setOrganizations(fullMemberships)
 
-          // Set current org
-          if (userData?.current_organization_id) {
-            const current = fullMemberships.find(m => m.organization.id === userData.current_organization_id)
+          // Set current org from function result
+          if (userData?.current_org_id) {
+            const current = fullMemberships.find(m => m.organization.id === userData.current_org_id)
             if (current) {
+              console.log('✅ Setting current org:', current.organization.name)
               setCurrentOrg(current.organization)
+            } else {
+              console.log('⚠️ Current org not found in memberships')
             }
+          } else {
+            console.log('⚠️ No current_org_id from function')
           }
         }
       }
     } catch (error) {
-      console.error('Error loading organizations:', error)
+      console.error('💥 Error loading organizations:', error)
     } finally {
       setLoading(false)
     }
