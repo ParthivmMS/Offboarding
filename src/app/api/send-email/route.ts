@@ -89,7 +89,23 @@ export async function POST(request: NextRequest) {
         break
         
       case 'exit_survey_invitation':
-        result = await sendExitSurveyInvitationEmail(params)
+        console.log('📧 Sending exit survey invitation with params:', {
+          to,
+          employeeName: params.employeeName,
+          organizationName: params.organizationName,
+          surveyLink: params.surveyLink,
+          expiresInDays: params.expiresInDays
+        })
+        
+        result = await sendExitSurveyInvitationEmail({
+          to: Array.isArray(to) ? to : [to],
+          employeeName: params.employeeName,
+          organizationName: params.organizationName,
+          surveyLink: params.surveyLink,
+          expiresInDays: params.expiresInDays || 7
+        })
+        
+        console.log('📧 Exit survey email result:', result)
         break
       
       case 'trial_ended':
