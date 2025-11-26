@@ -47,16 +47,17 @@ export async function POST(
 
     const allComplete = allTasks?.every(t => t.completed)
 
-    // If all tasks complete, mark offboarding as completed
-    if (allComplete) {
-      await supabase
-        .from('offboardings')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString(),
-        })
-        .eq('id', task.offboarding_id)
+    // If all tasks complete, finalize the offboarding
+if (allComplete) {
+  // Call finalize endpoint to complete AND send exit survey
+  fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/offboardings/${task.offboarding_id}/finalize`, {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Cookie': request.headers.get('cookie') || '' // Pass auth
     }
+  }).catch(err => console.error('Failed to finalize offboarding:', err))
+}
 
     // Create notification for admin/HR
     const { data: offboarding } = await supabase
