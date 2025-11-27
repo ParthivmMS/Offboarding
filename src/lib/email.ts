@@ -1012,7 +1012,6 @@ export async function sendChurnAlertEmail({
     return { success: false, error }
   }
 }
-
 export async function sendExitSurveyInvitationEmail({
   to,
   employeeName,
@@ -1150,7 +1149,7 @@ export async function sendExitSurveyInvitationEmail({
         </html>
       `,
       senderName: 'OffboardPro',
-  senderEmail: 'parthivmssince2005@gmail.com',
+      // ✅ NOTICE: senderEmail line is REMOVED - it will use Brevo's authenticated sender automatically
     })
 
     if (!result.success) {
@@ -1165,6 +1164,9 @@ export async function sendExitSurveyInvitationEmail({
     return { success: false, error }
   }
 }
+
+
+                
 
 export async function sendTrialEndedEmail({
   to,
