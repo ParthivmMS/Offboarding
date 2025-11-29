@@ -83,21 +83,21 @@ function AcceptInviteContent() {
 
     console.log('✅ Invitation found!')
 
-    // ✅ Fetch organization name separately (after we have the ID)
+    // ✅ Fetch organization name separately and create enriched object
     const { data: orgData } = await supabase
       .from('organizations')
       .select('name')
       .eq('id', invite.organization_id)
       .single()
     
-    if (orgData) {
-      invite.organization = { name: orgData.name }
-    } else {
-      invite.organization = { name: 'Your Organization' }
+    // ✅ Create enriched invitation object with organization
+    const enrichedInvite = {
+      ...invite,
+      organization: orgData ? { name: orgData.name } : { name: 'Your Organization' }
     }
 
     // Check if invitation is expired
-    const expiresAt = new Date(invite.expires_at)
+    const expiresAt = new Date(enrichedInvite.expires_at)
     const now = new Date()
     
     if (expiresAt < now) {
@@ -109,21 +109,21 @@ function AcceptInviteContent() {
 
     console.log('✅ Invitation is valid!')
 
-    setInvitation(invite)
-    setFormData(prev => ({ ...prev, email: invite.email }))
+    setInvitation(enrichedInvite)
+    setFormData(prev => ({ ...prev, email: enrichedInvite.email }))
 
     // Check if user is currently logged in
     const { data: { user } } = await supabase.auth.getUser()
     
     if (user) {
       // Verify email matches invitation
-      if (user.email?.toLowerCase() === invite.email.toLowerCase()) {
+      if (user.email?.toLowerCase() === enrichedInvite.email.toLowerCase()) {
         // Correct user - accept invitation
-        await acceptInvitationForExistingUser(user.id, invite)
+        await acceptInvitationForExistingUser(user.id, enrichedInvite)
       } else {
         // Wrong user logged in
         setWrongAccountWarning(
-          `You're currently logged in as ${user.email}, but this invitation is for ${invite.email}. Please logout and login with the correct account, or create a new account.`
+          `You're currently logged in as ${user.email}, but this invitation is for ${enrichedInvite.email}. Please logout and login with the correct account, or create a new account.`
         )
         setLoading(false)
       }
