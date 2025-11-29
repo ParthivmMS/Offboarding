@@ -19,18 +19,14 @@ export async function POST(request: NextRequest) {
     const body = await request.text()
     const signature = request.headers.get('paddle-signature')
 
-    // 🧪 TEMPORARY: Signature check DISABLED for testing simulations
-    // TODO: Re-enable this before going to production with real customers!
-    console.log('⚠️ ⚠️ ⚠️ SIGNATURE CHECK DISABLED - TESTING MODE ONLY')
-    
-    // if (!verifyWebhookSignature(body, signature)) {
-    //   console.error('❌ Invalid webhook signature')
-    //   return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-    // }
+    // 🔒 CRITICAL: Verify webhook signature for security
+    if (!verifyWebhookSignature(body, signature)) {
+      console.error('❌ Invalid webhook signature')
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+    }
 
     const event = JSON.parse(body)
     console.log('📥 Paddle webhook received:', event.event_type)
-    console.log('📦 Event data:', JSON.stringify(event.data, null, 2))
 
     // Handle different event types
     switch (event.event_type) {
@@ -74,57 +70,22 @@ export async function POST(request: NextRequest) {
 
 async function handleSubscriptionCreated(data: any) {
   console.log('✅ Subscription created:', data.id)
-  console.log('📦 Full subscription data:', JSON.stringify(data, null, 2))
 
   const userId = data.custom_data?.userId
   const planName = data.custom_data?.planName || 'professional'
 
   if (!userId) {
     console.error('❌ No userId in custom_data')
-    console.log('🔍 Checking for customer email...')
-    
-    // 🧪 FOR SIMULATIONS: Try to find user by customer ID or email
-    if (data.customer_id) {
-      console.log('🔍 Attempting to find user by customer_id:', data.customer_id)
-      
-      // First try to find by paddle_customer_id
-      const { data: userByCustomer, error: customerError } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('paddle_customer_id', data.customer_id)
-        .single()
-
-      if (!customerError && userByCustomer) {
-        console.log('✅ Found user by customer_id:', userByCustomer.id)
-        await updateUserSubscription(userByCustomer.id, data, planName)
-        return
-      }
-    }
-
-    // For simulations without real user data, just log it
-    console.log('⚠️ This is a simulation with sample data - no real user to update')
-    console.log('✅ Webhook received and processed successfully (simulation mode)')
+    console.error('📦 Webhook data:', JSON.stringify(data, null, 2))
     return
   }
 
-  await updateUserSubscription(userId, data, planName)
-}
-
-async function updateUserSubscription(userId: string, data: any, planName: string) {
   try {
     // Determine subscription status (trialing or active)
     const status = data.status || (data.trial_dates ? 'trialing' : 'active')
 
-    console.log('🔄 Updating user subscription:', {
-      userId,
-      status,
-      planName,
-      paddle_subscription_id: data.id,
-      paddle_customer_id: data.customer_id
-    })
-
     // Update user's subscription status in database
-    const { error, data: updatedUser } = await supabase
+    const { error } = await supabase
       .from('users')
       .update({
         subscription_status: status,
@@ -134,17 +95,15 @@ async function updateUserSubscription(userId: string, data: any, planName: strin
         trial_ends_at: data.trial_dates?.ends_at || null,
       })
       .eq('id', userId)
-      .select()
 
     if (error) {
       console.error('❌ Error updating user:', error)
       console.error('Error details:', JSON.stringify(error, null, 2))
     } else {
-      console.log('✅ User subscription created:', userId, '| Status:', status)
-      console.log('✅ Updated user data:', JSON.stringify(updatedUser, null, 2))
+      console.log('✅ User subscription created:', userId, '| Status:', status, '| Plan:', planName)
     }
   } catch (error) {
-    console.error('❌ Error in updateUserSubscription:', error)
+    console.error('❌ Error in handleSubscriptionCreated:', error)
   }
 }
 
@@ -249,9 +208,6 @@ async function handleTransactionCompleted(data: any) {
 /**
  * 🔒 CRITICAL: Verify Paddle webhook signature
  * Prevents unauthorized requests from modifying user subscriptions
- * 
- * NOTE: Currently disabled for testing simulations
- * TODO: Re-enable before production launch!
  */
 function verifyWebhookSignature(body: string, signatureHeader: string | null): boolean {
   if (!signatureHeader) {
@@ -301,8 +257,8 @@ function verifyWebhookSignature(body: string, signatureHeader: string | null): b
 
     if (!isValid) {
       console.error('❌ Signature verification failed')
-      console.log('Expected:', expectedSignature)
-      console.log('Received:', h1Signature)
+      console.error('Expected signature:', expectedSignature)
+      console.error('Received signature:', h1Signature)
     }
 
     return isValid
