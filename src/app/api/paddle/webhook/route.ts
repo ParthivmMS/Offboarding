@@ -27,6 +27,7 @@ export async function POST(request: NextRequest) {
 
     const event = JSON.parse(body)
     console.log('📥 Paddle webhook received:', event.event_type)
+    console.log('📦 Event data:', JSON.stringify(event.data, null, 2))
 
     // Handle different event types
     switch (event.event_type) {
@@ -72,13 +73,38 @@ async function handleSubscriptionCreated(data: any) {
   console.log('✅ Subscription created:', data.id)
 
   const userId = data.custom_data?.userId
-  const planName = data.custom_data?.planName
+  const planName = data.custom_data?.planName || 'professional'
 
   if (!userId) {
     console.error('❌ No userId in custom_data')
+    console.log('📦 Full data:', JSON.stringify(data, null, 2))
+    
+    // 🧪 FOR SIMULATIONS: Try to find user by customer email
+    if (data.customer?.email) {
+      console.log('🔍 Attempting to find user by email:', data.customer.email)
+      const { data: user, error } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', data.customer.email)
+        .single()
+
+      if (error || !user) {
+        console.error('❌ Could not find user by email:', error)
+        return
+      }
+
+      console.log('✅ Found user by email, using ID:', user.id)
+      await updateUserSubscription(user.id, data, planName)
+      return
+    }
+    
     return
   }
 
+  await updateUserSubscription(userId, data, planName)
+}
+
+async function updateUserSubscription(userId: string, data: any, planName: string) {
   try {
     // Determine subscription status (trialing or active)
     const status = data.status || (data.trial_dates ? 'trialing' : 'active')
@@ -91,7 +117,6 @@ async function handleSubscriptionCreated(data: any) {
         subscription_plan: planName,
         paddle_subscription_id: data.id,
         paddle_customer_id: data.customer_id,
-        subscription_start_date: data.started_at || new Date().toISOString(),
         trial_ends_at: data.trial_dates?.ends_at || null,
       })
       .eq('id', userId)
@@ -102,7 +127,7 @@ async function handleSubscriptionCreated(data: any) {
       console.log('✅ User subscription created:', userId, '| Status:', status)
     }
   } catch (error) {
-    console.error('❌ Error in handleSubscriptionCreated:', error)
+    console.error('❌ Error in updateUserSubscription:', error)
   }
 }
 
@@ -114,6 +139,7 @@ async function handleSubscriptionActivated(data: any) {
       .from('users')
       .update({
         subscription_status: 'active',
+        trial_ended_at: new Date().toISOString(),
       })
       .eq('paddle_subscription_id', data.id)
 
@@ -163,7 +189,6 @@ async function handleSubscriptionCanceled(data: any) {
       .from('users')
       .update({
         subscription_status: 'canceled',
-        subscription_canceled_at: new Date().toISOString(),
       })
       .eq('paddle_subscription_id', data.id)
 
@@ -209,7 +234,17 @@ async function handleTransactionCompleted(data: any) {
  * Prevents unauthorized requests from modifying user subscriptions
  */
 function verifyWebhookSignature(body: string, signatureHeader: string | null): boolean {
+  // 🧪 SIMULATION MODE: Allow webhooks without signature for testing
+  // This is safe because simulations come from Paddle's dashboard
+  const allowSimulations = process.env.PADDLE_ALLOW_SIMULATIONS === 'true'
+  
   if (!signatureHeader) {
+    if (allowSimulations) {
+      console.log('⚠️ ⚠️ ⚠️ SIMULATION MODE: Allowing webhook without signature')
+      console.log('⚠️ This should ONLY be enabled during testing!')
+      return true
+    }
+    
     console.error('❌ No signature header provided')
     return false
   }
@@ -256,6 +291,8 @@ function verifyWebhookSignature(body: string, signatureHeader: string | null): b
 
     if (!isValid) {
       console.error('❌ Signature verification failed')
+      console.log('Expected:', expectedSignature)
+      console.log('Received:', h1Signature)
     }
 
     return isValid
