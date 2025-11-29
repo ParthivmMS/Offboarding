@@ -40,117 +40,103 @@ function AcceptInviteContent() {
   }, [token])
 
   async function verifyInvitation() {
-    const supabase = createClient()
+  const supabase = createClient()
+  
+  try {
+    console.log('🔍 ===== STARTING INVITATION VERIFICATION =====')
+    console.log('🔍 Token received:', token)
     
-    try {
-      console.log('🔍 ===== STARTING INVITATION VERIFICATION =====')
-      console.log('🔍 Token received:', token)
-      console.log('🔍 Token type:', typeof token)
-      console.log('🔍 Token length:', token?.length)
-      
-      // Check if invitation exists and is valid (NO JOINS to avoid RLS issues)
-      console.log('📤 Querying invitations table (without joins)...')
-      const { data: invite, error: inviteError } = await supabase
-        .from('invitations')
-        .select('*')  // ✅ NO JOINS - avoids RLS permission errors
-        .eq('token', token)
-        .eq('status', 'pending')
-        .maybeSingle()
+    // ✅ Query ONLY invitation fields (no joins, no users table)
+    const { data: invite, error: inviteError } = await supabase
+      .from('invitations')
+      .select(`
+        id,
+        email,
+        role,
+        organization_id,
+        status,
+        token,
+        expires_at,
+        created_at,
+        invited_by
+      `)
+      .eq('token', token)
+      .eq('status', 'pending')
+      .maybeSingle()
 
-      console.log('📊 ===== QUERY RESULTS =====')
-      console.log('📊 Invite data:', invite)
-      console.log('📊 Invite error:', inviteError)
-      console.log('📊 Full invite object:', JSON.stringify(invite, null, 2))
-      console.log('📊 Full error object:', JSON.stringify(inviteError, null, 2))
+    console.log('📊 Invite data:', invite)
+    console.log('📊 Invite error:', inviteError)
 
-      if (inviteError) {
-        console.error('❌ Database error occurred:', inviteError.message)
-        console.error('❌ Error code:', inviteError.code)
-        console.error('❌ Error details:', inviteError.details)
-        setError('This invitation is invalid or has already been used')
-        setLoading(false)
-        return
-      }
+    if (inviteError) {
+      console.error('❌ Database error:', inviteError)
+      setError('This invitation is invalid or has already been used')
+      setLoading(false)
+      return
+    }
 
-      if (!invite) {
-        console.error('❌ No invitation found with token:', token)
-        setError('This invitation is invalid or has already been used')
-        setLoading(false)
-        return
-      }
+    if (!invite) {
+      console.error('❌ No invitation found')
+      setError('This invitation is invalid or has already been used')
+      setLoading(false)
+      return
+    }
 
-      console.log('✅ Invitation found!')
-      console.log('✅ Email:', invite.email)
-      console.log('✅ Status:', invite.status)
-      console.log('✅ Org ID:', invite.organization_id)
-      console.log('✅ Expires at:', invite.expires_at)
+    console.log('✅ Invitation found!')
 
-      // Fetch organization name separately (this will work after user logs in)
-      if (invite.organization_id) {
-        console.log('🏢 Fetching organization name...')
-        const { data: orgData, error: orgError } = await supabase
-          .from('organizations')
-          .select('name')
-          .eq('id', invite.organization_id)
-          .maybeSingle()
-        
-        if (orgError) {
-          console.warn('⚠️ Could not fetch organization name:', orgError)
-          // Don't fail - just use a placeholder
-          invite.organization = { name: 'Your New Organization' }
-        } else if (orgData) {
-          console.log('✅ Organization name:', orgData.name)
-          invite.organization = orgData
-        } else {
-          console.warn('⚠️ No organization found')
-          invite.organization = { name: 'Unknown Organization' }
-        }
-      }
+    // ✅ Fetch organization name separately (after we have the ID)
+    const { data: orgData } = await supabase
+      .from('organizations')
+      .select('name')
+      .eq('id', invite.organization_id)
+      .single()
+    
+    if (orgData) {
+      invite.organization = { name: orgData.name }
+    } else {
+      invite.organization = { name: 'Your Organization' }
+    }
 
-      // Check if invitation is expired
-      const expiresAt = new Date(invite.expires_at)
-      const now = new Date()
-      console.log('⏰ Current time:', now.toISOString())
-      console.log('⏰ Expiry time:', expiresAt.toISOString())
-      console.log('⏰ Is expired?', expiresAt < now)
-      
-      if (expiresAt < now) {
-        console.error('❌ Invitation has expired')
-        setError('This invitation has expired')
-        setLoading(false)
-        return
-      }
+    // Check if invitation is expired
+    const expiresAt = new Date(invite.expires_at)
+    const now = new Date()
+    
+    if (expiresAt < now) {
+      console.error('❌ Invitation has expired')
+      setError('This invitation has expired')
+      setLoading(false)
+      return
+    }
 
-      console.log('✅ Invitation is valid and not expired!')
+    console.log('✅ Invitation is valid!')
 
-      setInvitation(invite)
-      setFormData(prev => ({ ...prev, email: invite.email }))
+    setInvitation(invite)
+    setFormData(prev => ({ ...prev, email: invite.email }))
 
-      // Check if user is currently logged in
-      const { data: { user } } = await supabase.auth.getUser()
-      
-      if (user) {
-        // ✅ CRITICAL FIX: Verify email matches invitation
-        if (user.email?.toLowerCase() === invite.email.toLowerCase()) {
-          // Correct user is logged in - accept invitation directly
-          await acceptInvitationForExistingUser(user.id, invite)
-        } else {
-          // Wrong user is logged in!
-          setWrongAccountWarning(
-            `You're currently logged in as ${user.email}, but this invitation is for ${invite.email}. Please logout and login with the correct account, or create a new account.`
-          )
-          setLoading(false)
-        }
+    // Check if user is currently logged in
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (user) {
+      // Verify email matches invitation
+      if (user.email?.toLowerCase() === invite.email.toLowerCase()) {
+        // Correct user - accept invitation
+        await acceptInvitationForExistingUser(user.id, invite)
       } else {
-        // No user logged in - show signup form
+        // Wrong user logged in
+        setWrongAccountWarning(
+          `You're currently logged in as ${user.email}, but this invitation is for ${invite.email}. Please logout and login with the correct account, or create a new account.`
+        )
         setLoading(false)
       }
-      
-    } catch (err: any) {
-      console.error('Error verifying invitation:', err)
-      setError('Failed to verify invitation')
+    } else {
+      // No user logged in - show signup form
       setLoading(false)
     }
+    
+  } catch (err: any) {
+    console.error('Error verifying invitation:', err)
+    setError('Failed to verify invitation')
+    setLoading(false)
+  }
   }
 
   async function handleLogout() {
